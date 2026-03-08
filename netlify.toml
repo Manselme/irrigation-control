@@ -1,0 +1,7 @@
+[build]
+  command = "npm run build"
+  # Do not use repo root: plugin requires a subdirectory (e.g. .next)
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
