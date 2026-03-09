@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
 import { useModules } from "@/lib/hooks/useModules";
@@ -24,11 +25,26 @@ const DEFAULT_LAT = 46.6;
 const DEFAULT_LNG = 1.9;
 
 export default function IrrigationPage() {
+  const searchParams = useSearchParams();
+  const zoneIdFromUrl = searchParams.get("zone");
   const { user } = useAuth();
   const { farms } = useFarms(user?.uid);
   const { modules } = useModules(user?.uid);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
+  const { zones: allZones } = useZones(user?.uid, null);
   const { zones, updateZone } = useZones(user?.uid, selectedFarmId);
+
+  useEffect(() => {
+    if (!zoneIdFromUrl || !allZones.length) return;
+    const zone = allZones.find((z) => z.id === zoneIdFromUrl);
+    if (zone) setSelectedFarmId(zone.farmId);
+  }, [zoneIdFromUrl, allZones]);
+
+  useEffect(() => {
+    if (!zoneIdFromUrl || zones.length === 0) return;
+    const el = document.getElementById("zone-target");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [zoneIdFromUrl, zones.length]);
   const { sendCommand, pendingCommand, clearPending } = useSendCommand(user?.uid);
   const [forecast, setForecast] = useState<ForecastDay[] | null>(null);
   const humidityByZone = useAllZonesHumidity(
@@ -127,20 +143,21 @@ export default function IrrigationPage() {
               : null;
             const center = getZoneCenter(zone);
             return (
-              <ZoneControls
-                key={zone.id}
-                zone={zone}
-                modules={modules}
-                pumpModule={pumpModule}
-                userId={user?.uid}
-                forecast={forecast}
-                zoneCenter={center}
-                pendingCommand={pendingCommand}
-                onSendCommand={sendCommand}
-                onClearPending={clearPending}
-                onZoneModeChange={handleZoneModeChange}
-                onUpdateZoneAutoRules={(zoneId, autoRules) => updateZone(zoneId, { autoRules })}
-              />
+              <div key={zone.id} id={zoneIdFromUrl === zone.id ? "zone-target" : undefined}>
+                <ZoneControls
+                  zone={zone}
+                  modules={modules}
+                  pumpModule={pumpModule}
+                  userId={user?.uid}
+                  forecast={forecast}
+                  zoneCenter={center}
+                  pendingCommand={pendingCommand}
+                  onSendCommand={sendCommand}
+                  onClearPending={clearPending}
+                  onZoneModeChange={handleZoneModeChange}
+                  onUpdateZoneAutoRules={(zoneId, autoRules) => updateZone(zoneId, { autoRules })}
+                />
+              </div>
             );
           })}
         </div>

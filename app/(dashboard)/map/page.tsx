@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
 import { useModules } from "@/lib/hooks/useModules";
@@ -17,10 +17,21 @@ export default function MapPage() {
   const [drawingZoneId, setDrawingZoneId] = useState<string | null>(null);
   const [draftLatLngs, setDraftLatLngs] = useState<[number, number][]>([]);
 
-  const { zones, addZone, updateZone } = useZones(
+  const { zones, addZone, updateZone, removeZone } = useZones(
     user?.uid,
     selectedFarmId
   );
+
+  useEffect(() => {
+    const ids = new Set(zones.map((z) => z.id));
+    if (drawingZoneId && !ids.has(drawingZoneId)) {
+      setDrawingZoneId(null);
+      setDraftLatLngs([]);
+    }
+    if (selectedZoneId && !ids.has(selectedZoneId)) {
+      setSelectedZoneId(null);
+    }
+  }, [zones, drawingZoneId, selectedZoneId]);
 
   const fieldModules = modules.filter((m) => m.type === "field");
 
@@ -68,6 +79,10 @@ export default function MapPage() {
     });
   }, []);
 
+  const handleDraftPointRemove = useCallback((index: number) => {
+    setDraftLatLngs((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -106,6 +121,7 @@ export default function MapPage() {
               onMapClick={drawingZoneId ? handleMapClick : undefined}
               draftLatLngs={draftLatLngs}
               onDraftPointMove={drawingZoneId ? handleDraftPointMove : undefined}
+              onDraftPointRemove={drawingZoneId ? handleDraftPointRemove : undefined}
             />
           </div>
         </div>
@@ -118,6 +134,7 @@ export default function MapPage() {
             onSelectZone={setSelectedZoneId}
             onAddZone={addZone}
             onUpdateZone={updateZone}
+            onRemoveZone={removeZone}
             drawingZoneId={drawingZoneId}
             draftLatLngs={draftLatLngs}
             onStartDrawing={handleStartDrawing}

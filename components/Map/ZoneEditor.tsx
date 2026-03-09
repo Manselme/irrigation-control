@@ -31,6 +31,7 @@ interface ZoneEditorProps {
       >
     >
   ) => Promise<void>;
+  onRemoveZone: (zoneId: string) => Promise<void>;
   drawingZoneId: string | null;
   draftLatLngs: [number, number][];
   onStartDrawing: (zoneId: string) => void;
@@ -51,6 +52,7 @@ export function ZoneEditor({
   onSelectZone,
   onAddZone,
   onUpdateZone,
+  onRemoveZone,
   drawingZoneId,
   draftLatLngs,
   onStartDrawing,
@@ -60,6 +62,7 @@ export function ZoneEditor({
   const [newZoneName, setNewZoneName] = useState("");
   const [newZoneFarmId, setNewZoneFarmId] = useState("");
   const [adding, setAdding] = useState(false);
+  const [removingZoneId, setRemovingZoneId] = useState<string | null>(null);
 
   const selectedZone = selectedZoneId
     ? zones.find((z) => z.id === selectedZoneId)
@@ -152,9 +155,9 @@ export function ZoneEditor({
                     {drawingZoneId === zone.id ? (
                       <div className="space-y-2 text-sm">
                         <p className="text-muted-foreground">
-                          Cliquez sur la carte pour ajouter des points. Au moins 3 points.
+                          Cliquez sur la carte pour ajouter des points. Cliquez sur un point pour ouvrir le menu (déplacer, coordonnées GPS, supprimer). Glissez un point pour le déplacer. Au moins 3 points.
                         </p>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <Button
                             size="sm"
                             onClick={() => onSaveDraft(zone.id)}
@@ -229,6 +232,26 @@ export function ZoneEditor({
                           </span>
                         )}
                       </div>
+                    </div>
+                    <div className="pt-2 border-t border-border mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                        disabled={removingZoneId === zone.id}
+                        onClick={async () => {
+                          if (!confirm(`Supprimer la zone « ${zone.name} » ?`)) return;
+                          setRemovingZoneId(zone.id);
+                          try {
+                            await onRemoveZone(zone.id);
+                            onSelectZone(null);
+                          } finally {
+                            setRemovingZoneId(null);
+                          }
+                        }}
+                      >
+                        {removingZoneId === zone.id ? "Suppression…" : "Supprimer la zone"}
+                      </Button>
                     </div>
                   </div>
                 )}

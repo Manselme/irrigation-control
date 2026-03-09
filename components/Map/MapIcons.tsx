@@ -28,8 +28,14 @@ export function useCircleIcon(color: string, size = 12): Icon | DivIcon | null {
   return icon;
 }
 
-export function useMapIcons() {
-  const draftIcon = useCircleIcon("hsl(var(--primary))", 14);
+/** Taille du point de contour selon le zoom (points réduits) */
+export function pointSizeFromZoom(zoom: number): number {
+  return Math.min(18, Math.max(10, 8 + zoom * 0.8));
+}
+
+export function useMapIcons(zoomForDraft?: number) {
+  const draftSize = zoomForDraft != null ? pointSizeFromZoom(zoomForDraft) : 12;
+  const draftIcon = useCircleIcon("hsl(var(--primary))", draftSize);
   const champIcon = useCircleIcon("#22c55e", 14);
   return { draftIcon, champIcon };
 }

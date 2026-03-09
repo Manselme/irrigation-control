@@ -29,6 +29,10 @@ const MapClickHandler = dynamic(
   () => import("./MapClickHandler").then((m) => m.MapClickHandler),
   { ssr: false }
 );
+const DraftPointMarkers = dynamic(
+  () => import("./DraftPointMarkers").then((m) => m.DraftPointMarkers),
+  { ssr: false }
+);
 
 const DEFAULT_CENTER: [number, number] = [46.603354, 1.888334];
 const DEFAULT_ZOOM = 6;
@@ -42,6 +46,7 @@ interface MapViewProps {
   onMapClick?: (lat: number, lng: number) => void;
   draftLatLngs?: [number, number][];
   onDraftPointMove?: (index: number, lat: number, lng: number) => void;
+  onDraftPointRemove?: (index: number) => void;
 }
 
 function latLngsFromPolygon(
@@ -60,14 +65,19 @@ export function MapView({
   onMapClick,
   draftLatLngs = [],
   onDraftPointMove,
+  onDraftPointRemove,
 }: MapViewProps) {
-  const { draftIcon, champIcon } = useMapIcons();
+  const { champIcon } = useMapIcons();
 
   return (
     <div className={className}>
       <MapContainer
         center={center}
         zoom={zoom}
+        minZoom={4}
+        maxZoom={19}
+        maxBounds={[[-85, -180], [85, 180]]}
+        maxBoundsViscosity={1}
         className="h-full w-full rounded-lg z-0"
         scrollWheelZoom
       >
@@ -104,26 +114,11 @@ export function MapView({
             }}
           />
         )}
-        {draftIcon &&
-          draftLatLngs.map((pos, i) => (
-            <Marker
-              key={`draft-${i}`}
-              position={pos}
-              icon={draftIcon}
-              draggable={!!onDraftPointMove}
-              eventHandlers={
-                onDraftPointMove
-                  ? {
-                      dragend: (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
-                        const ll = e.target.getLatLng();
-                        onDraftPointMove(i, ll.lat, ll.lng);
-                      },
-                    }
-                  : undefined
-              }
-              zIndexOffset={500}
-            />
-          ))}
+        <DraftPointMarkers
+          draftLatLngs={draftLatLngs}
+          onDraftPointMove={onDraftPointMove}
+          onDraftPointRemove={onDraftPointRemove}
+        />
         {champIcon &&
           fieldModules
             .filter((m) => m.position?.lat != null && m.position?.lng != null)

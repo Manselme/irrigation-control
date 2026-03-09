@@ -5,6 +5,31 @@ export interface ForecastDay {
   precipitationMm: number;
 }
 
+export interface CurrentWeather {
+  tempC: number;
+  weatherCode?: number;
+}
+
+export async function getCurrentWeather(
+  lat: number,
+  lng: number
+): Promise<CurrentWeather> {
+  const params = new URLSearchParams({
+    latitude: String(lat),
+    longitude: String(lng),
+    current: "temperature_2m,weather_code",
+    timezone: "auto",
+  });
+  const res = await fetch(`${OPEN_METEO_BASE}/forecast?${params}`);
+  if (!res.ok) throw new Error("Météo indisponible");
+  const data = await res.json();
+  const current = data.current as { temperature_2m?: number; weather_code?: number };
+  return {
+    tempC: Number(current?.temperature_2m) ?? 0,
+    weatherCode: current?.weather_code != null ? Number(current.weather_code) : undefined,
+  };
+}
+
 export async function getForecast(
   lat: number,
   lng: number,
