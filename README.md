@@ -10,9 +10,23 @@ Plateforme web pour piloter, automatiser et surveiller l'irrigation à distance 
 - **Graphiques:** Recharts
 - **Météo:** API Open-Meteo (sans clé)
 
+## Prérequis
+
+Avant d’installer le projet, il faut :
+
+- **Node.js** 18 ou 20 (recommandé) et **npm**
+  - Télécharger depuis : https://nodejs.org
+- **Git** (pour cloner le dépôt) : https://git-scm.com
+- (Optionnel mais recommandé) **Visual Studio Code** avec :
+  - Extension **ESLint**
+  - Extension **Tailwind CSS IntelliSense**
+  - Extension **Prettier** (ou équivalent)
+
+Sur Windows, le script `setup-project.bat` aide à vérifier ces prérequis et à installer les dépendances npm.
+
 ## Installation
 
-1. Cloner le projet et installer les dépendances :
+1. Cloner le projet et installer les dépendances (ou lancer `setup-project.bat`) :
 
 ```bash
 npm install
@@ -47,7 +61,7 @@ npm run dev
 
 Ouvrir [http://localhost:3000](http://localhost:3000).
 
-## Parcours
+## Parcours fonctionnel
 
 - **Connexion** : inscription / connexion (email + mot de passe).
 - **Matériel** : créer une ferme, ajouter des modules (Mère, Pompe, Champ) par ID.
