@@ -9,6 +9,9 @@ export interface SensorHistoryPoint {
   humidity?: number;
   ph?: number;
   battery?: number;
+  tension_cb?: number;
+  humidity_10cm?: number;
+  humidity_30cm?: number;
 }
 
 export function useSensorHistory(
@@ -49,6 +52,9 @@ export function useSensorHistory(
           humidity: val.humidity as number | undefined,
           ph: val.ph as number | undefined,
           battery: val.battery as number | undefined,
+          tension_cb: val.tension_cb as number | undefined,
+          humidity_10cm: val.humidity_10cm as number | undefined,
+          humidity_30cm: val.humidity_30cm as number | undefined,
         });
       });
       list.sort((a, b) => a.timestamp - b.timestamp);

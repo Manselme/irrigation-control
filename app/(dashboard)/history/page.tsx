@@ -1,103 +1,89 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
-import { useModules } from "@/lib/hooks/useModules";
 import { useZones } from "@/lib/hooks/useZones";
-import { useSensorHistory } from "@/lib/hooks/useSensorHistory";
-import { usePumpActivity } from "@/lib/hooks/usePumpActivity";
-import { getForecast } from "@/lib/weather";
-import { HistoryCharts } from "@/components/History/HistoryCharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ZoneHistoryDetail } from "@/components/Zones/ZoneHistoryDetail";
 
 export default function HistoryPage() {
   const { user } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const zoneIdFromUrl = searchParams.get("zone");
+
   const { farms } = useFarms(user?.uid);
-  const { modules } = useModules(user?.uid);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const { zones } = useZones(user?.uid, selectedFarmId);
+
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
 
-  const [periodDays, setPeriodDays] = useState<number>(30);
-  const selectedZone = selectedZoneId
-    ? zones.find((z) => z.id === selectedZoneId)
-    : zones[0];
-  const pumpModuleId = selectedZone?.pumpModuleId ?? null;
-  const firstFieldModuleId = selectedZone?.fieldModuleIds?.[0];
-
-  const humidityPoints = useSensorHistory(
-    user?.uid,
-    firstFieldModuleId ?? undefined,
-    periodDays
+  const setZone = useCallback(
+    (zoneId: string | null) => {
+      setSelectedZoneId(zoneId);
+      if (zoneId) {
+        router.replace(`${pathname}?zone=${zoneId}`, { scroll: false });
+      } else {
+        router.replace(pathname, { scroll: false });
+      }
+    },
+    [router, pathname]
   );
-  const pumpDays = usePumpActivity(user?.uid, pumpModuleId ?? undefined, periodDays);
-  const [rainDays, setRainDays] = useState<{ date: string; precipitationMm: number }[]>([]);
 
   useEffect(() => {
-    if (!selectedZone?.polygon?.coordinates?.[0]?.[0]) return;
-    const [lng, lat] = selectedZone.polygon.coordinates[0][0];
-    const forecastDays = Math.min(16, periodDays);
-    getForecast(lat, lng, forecastDays)
-      .then((list) =>
-        setRainDays(list.map((d) => ({ date: d.date, precipitationMm: d.precipitationMm })))
-      )
-      .catch(() => setRainDays([]));
-  }, [selectedZone?.id, selectedZone?.polygon, periodDays]);
+    if (zones.length === 0) return;
+    if (zoneIdFromUrl && zones.some((z) => z.id === zoneIdFromUrl)) {
+      setSelectedZoneId(zoneIdFromUrl);
+    } else {
+      setSelectedZoneId((prev) => (prev && zones.some((z) => z.id === prev)) ? prev : zones[0].id);
+    }
+  }, [zoneIdFromUrl, zones]);
+
+  useEffect(() => {
+    if (selectedZoneId && zoneIdFromUrl !== selectedZoneId) {
+      router.replace(`${pathname}?zone=${selectedZoneId}`, { scroll: false });
+    }
+  }, [selectedZoneId]);
+
+  const selectedZone = useMemo(
+    () => (selectedZoneId ? zones.find((z) => z.id === selectedZoneId) : zones[0]),
+    [zones, selectedZoneId]
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Historique
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Historique</h1>
           <p className="text-muted-foreground">
-            Évolution de l&apos;humidité, temps de pompe et pluviométrie.
+            Historique &amp; analytique par zone : irrigation, pluie, tension du sol, bilan hydrique.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={periodDays}
-            onChange={(e) => setPeriodDays(Number(e.target.value))}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value={7}>7 jours</option>
-            <option value={14}>14 jours</option>
-            <option value={30}>30 jours</option>
-          </select>
           {farms.length > 1 && (
-          <select
-            value={selectedFarmId ?? ""}
-            onChange={(e) => {
-              setSelectedFarmId(e.target.value || null);
-              setSelectedZoneId(null);
-            }}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="">Toutes les fermes</option>
-            {farms.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
+            <select
+              value={selectedFarmId ?? ""}
+              onChange={(e) => {
+                setSelectedFarmId(e.target.value || null);
+                setSelectedZoneId(null);
+              }}
+              className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Toutes les fermes</option>
+              {farms.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
           )}
-        </div>
-      </div>
-
-      {zones.length === 0 ? (
-        <p className="text-muted-foreground">
-          Aucune zone. Les graphiques s&apos;afficheront une fois des zones et des capteurs en place.
-        </p>
-      ) : (
-        <Card className="border-border">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Données par zone</CardTitle>
+          {zones.length > 0 && (
             <select
               value={selectedZoneId ?? selectedZone?.id ?? ""}
-              onChange={(e) => setSelectedZoneId(e.target.value || null)}
-              className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+              onChange={(e) => setZone(e.target.value || null)}
+              className="flex h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[180px]"
             >
               {zones.map((z) => (
                 <option key={z.id} value={z.id}>
@@ -105,18 +91,21 @@ export default function HistoryPage() {
                 </option>
               ))}
             </select>
-          </CardHeader>
-          <CardContent>
-            <HistoryCharts
-              humidityPoints={humidityPoints}
-              pumpDays={pumpDays}
-              rainDays={rainDays}
-              zoneName={selectedZone?.name ?? ""}
-              periodDays={periodDays}
-            />
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </div>
+      </div>
+
+      {zones.length === 0 ? (
+        <p className="text-muted-foreground">
+          Aucune zone. Créez une zone et associez des capteurs pour afficher l&apos;historique détaillé.
+        </p>
+      ) : selectedZone ? (
+        <ZoneHistoryDetail
+          zone={selectedZone}
+          showBackLink={false}
+          showZoneTitle={true}
+        />
+      ) : null}
     </div>
   );
 }

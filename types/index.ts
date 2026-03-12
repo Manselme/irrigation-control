@@ -57,6 +57,12 @@ export interface SensorDataPoint {
   humidity?: number;
   ph?: number;
   battery?: number;
+  /** Tension du sol (tensiomètre) en centibars. Optionnel. */
+  tension_cb?: number;
+  /** Humidité sol à -10 cm (%). Optionnel. */
+  humidity_10cm?: number;
+  /** Humidité sol à -30 cm (%). Optionnel. */
+  humidity_30cm?: number;
 }
 
 export interface AlertConfig {
