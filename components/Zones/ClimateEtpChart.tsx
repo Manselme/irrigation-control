@@ -14,6 +14,8 @@ import {
 
 export interface ClimateEtpDataPoint {
   date: string;
+  /** Pluie quotidienne (mm) issue de l'archive météo. Utilisée pour les KPIs / graphique principal. */
+  precipitationMm: number;
   et0Mm: number;
   tempMaxC: number;
   tempMinC: number;
