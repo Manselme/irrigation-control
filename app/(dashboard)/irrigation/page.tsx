@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
 import { useModules } from "@/lib/hooks/useModules";
+import { useAlertConfig } from "@/lib/hooks/useAlerts";
 import { useZones } from "@/lib/hooks/useZones";
 import { useSendCommand } from "@/lib/hooks/useCommands";
 import { getForecast } from "@/lib/weather";
@@ -28,8 +29,11 @@ export default function IrrigationPage() {
   const searchParams = useSearchParams();
   const zoneIdFromUrl = searchParams.get("zone");
   const { user } = useAuth();
+  const { config: alertConfig } = useAlertConfig(user?.uid);
   const { farms } = useFarms(user?.uid);
-  const { modules } = useModules(user?.uid);
+  const { modules } = useModules(user?.uid, {
+    offlineThresholdMinutes: alertConfig?.offlineMinutesThreshold ?? 5,
+  });
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const { zones: allZones } = useZones(user?.uid, null);
   const { zones, updateZone } = useZones(user?.uid, selectedFarmId);

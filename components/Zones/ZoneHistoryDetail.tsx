@@ -5,12 +5,11 @@ import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSensorHistory } from "@/lib/hooks/useSensorHistory";
 import { usePumpActivity } from "@/lib/hooks/usePumpActivity";
-import { getDailyWeatherWithEt0 } from "@/lib/weather";
+import { getDailyWeatherWithEt0, type DailyWeatherWithEt0 } from "@/lib/weather";
 import { ZoneHistoryKPIs } from "@/components/Zones/ZoneHistoryKPIs";
 import { DynamicHydricChart } from "@/components/Zones/DynamicHydricChart";
 import type { DynamicHydricDataPoint } from "@/components/Zones/DynamicHydricChart";
 import { ClimateEtpChart } from "@/components/Zones/ClimateEtpChart";
-import type { ClimateEtpDataPoint } from "@/components/Zones/ClimateEtpChart";
 import { downloadZoneHistoryCsv } from "@/lib/zoneHistoryExport";
 import type { ZoneHistoryExportRow } from "@/lib/zoneHistoryExport";
 import { Card, CardContent } from "@/components/ui/card";
@@ -97,7 +96,7 @@ export interface ZoneHistoryDetailProps {
 export function ZoneHistoryDetail({ zone, showBackLink = true, showZoneTitle = true }: ZoneHistoryDetailProps) {
   const { user } = useAuth();
   const [period, setPeriod] = useState<"7" | "30" | "saison">("30");
-  const [weatherDaily, setWeatherDaily] = useState<ClimateEtpDataPoint[]>([]);
+  const [weatherDaily, setWeatherDaily] = useState<DailyWeatherWithEt0[]>([]);
   const [weatherLoading, setWeatherLoading] = useState(false);
 
   const todayStr = useMemo(() => {

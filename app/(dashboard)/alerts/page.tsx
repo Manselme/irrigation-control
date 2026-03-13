@@ -9,8 +9,10 @@ import { AlertList } from "@/components/Alerts/AlertList";
 
 export default function AlertsPage() {
   const { user } = useAuth();
-  const { modules } = useModules(user?.uid);
   const { config, updateConfig } = useAlertConfig(user?.uid);
+  const { modules } = useModules(user?.uid, {
+    offlineThresholdMinutes: config?.offlineMinutesThreshold ?? 5,
+  });
   const { notifications, markAsRead, addNotification } = useAlertNotifications(
     user?.uid
   );

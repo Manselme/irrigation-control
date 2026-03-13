@@ -5,13 +5,17 @@ import { ref, get, set, onValue } from "firebase/database";
 import { getFirebaseDb } from "@/lib/firebase";
 import type { Module, ModuleType } from "@/types";
 
-const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
-function isModuleOnline(lastSeen: number): boolean {
-  return Date.now() - lastSeen < OFFLINE_THRESHOLD_MS;
+function isModuleOnline(lastSeen: number, thresholdMs: number): boolean {
+  return lastSeen > 0 && Date.now() - lastSeen < thresholdMs;
 }
 
-function parseModule(id: string, data: Record<string, unknown>): Module {
+function parseModule(
+  id: string,
+  data: Record<string, unknown>,
+  offlineThresholdMs: number
+): Module {
   const lastSeen = (data.lastSeen as number) ?? 0;
   return {
     id,
@@ -20,16 +24,26 @@ function parseModule(id: string, data: Record<string, unknown>): Module {
     zoneId: data.zoneId as string | undefined,
     lastSeen,
     battery: data.battery as number | undefined,
-    online: (data.online as boolean) ?? isModuleOnline(lastSeen),
+    online: isModuleOnline(lastSeen, offlineThresholdMs),
     position: data.position as Module["position"],
     pressure: data.pressure as number | undefined,
     name: data.name as string | undefined,
   };
 }
 
-export function useModules(userId: string | undefined) {
+export interface UseModulesOptions {
+  /** Seuil en minutes au-delà duquel un module est considéré hors ligne (aligné sur la config alertes). Défaut 5. */
+  offlineThresholdMinutes?: number;
+}
+
+export function useModules(
+  userId: string | undefined,
+  options?: UseModulesOptions
+) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(!!userId);
+  const thresholdMs =
+    (options?.offlineThresholdMinutes ?? 5) * 60 * 1000;
 
   useEffect(() => {
     if (!userId) {
@@ -45,14 +59,14 @@ export function useModules(userId: string | undefined) {
         const data = snap.val();
         setModules(
           Object.entries(data).map(([id, v]) =>
-            parseModule(id, v as Record<string, unknown>)
+            parseModule(id, v as Record<string, unknown>, thresholdMs)
           )
         );
       }
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [userId]);
+  }, [userId, thresholdMs]);
 
   const addModule = useCallback(
     async (moduleId: string, type: ModuleType, farmId: string) => {
@@ -104,9 +118,11 @@ export function useModules(userId: string | undefined) {
 
 export function useModuleStatus(
   userId: string | undefined,
-  moduleId: string | undefined
+  moduleId: string | undefined,
+  offlineThresholdMinutes: number = 5
 ): { online: boolean } {
   const [online, setOnline] = useState(false);
+  const thresholdMs = offlineThresholdMinutes * 60 * 1000;
   useEffect(() => {
     if (!userId || !moduleId) {
       setOnline(false);
@@ -119,12 +135,10 @@ export function useModuleStatus(
         return;
       }
       const d = snap.val();
-      const lastSeen = d?.lastSeen ?? 0;
-      setOnline(
-        (d?.online as boolean) ?? isModuleOnline(lastSeen)
-      );
+      const lastSeen = (d?.lastSeen as number) ?? 0;
+      setOnline(isModuleOnline(lastSeen, thresholdMs));
     });
     return () => unsubscribe();
-  }, [userId, moduleId]);
+  }, [userId, moduleId, thresholdMs]);
   return { online };
 }

@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
 import { useModules } from "@/lib/hooks/useModules";
+import { useAlertConfig, useAlertNotifications } from "@/lib/hooks/useAlerts";
 import { useZones } from "@/lib/hooks/useZones";
-import { useAlertNotifications } from "@/lib/hooks/useAlerts";
 import { useQuickAccess } from "@/lib/hooks/useQuickAccess";
 import { useAllPumpStates } from "@/lib/hooks/useAllPumpStates";
 import { useAllZonesHumidity } from "@/lib/hooks/useZoneHumidity";
@@ -47,7 +47,10 @@ function getZoneCenter(zone: { polygon?: { coordinates?: number[][][] } }): { la
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { modules } = useModules(user?.uid);
+  const { config: alertConfig } = useAlertConfig(user?.uid);
+  const { modules } = useModules(user?.uid, {
+    offlineThresholdMinutes: alertConfig?.offlineMinutesThreshold ?? 5,
+  });
   const { zones } = useZones(user?.uid, null);
   const { notifications } = useAlertNotifications(user?.uid);
   const { items, setQuickAccess } = useQuickAccess(user?.uid);

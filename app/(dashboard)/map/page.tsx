@@ -4,14 +4,18 @@ import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
 import { useModules } from "@/lib/hooks/useModules";
+import { useAlertConfig } from "@/lib/hooks/useAlerts";
 import { useZones } from "@/lib/hooks/useZones";
 import { MapView } from "@/components/Map/MapView";
 import { ZoneEditor } from "@/components/Map/ZoneEditor";
 
 export default function MapPage() {
   const { user } = useAuth();
+  const { config: alertConfig } = useAlertConfig(user?.uid);
   const { farms } = useFarms(user?.uid);
-  const { modules } = useModules(user?.uid);
+  const { modules } = useModules(user?.uid, {
+    offlineThresholdMinutes: alertConfig?.offlineMinutesThreshold ?? 5,
+  });
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [drawingZoneId, setDrawingZoneId] = useState<string | null>(null);

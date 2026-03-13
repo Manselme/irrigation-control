@@ -3,6 +3,7 @@
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
 import { useModules } from "@/lib/hooks/useModules";
+import { useAlertConfig } from "@/lib/hooks/useAlerts";
 import { AddModuleForm } from "@/components/AddModuleForm";
 import { ModuleList } from "@/components/ModuleList";
 import { Button } from "@/components/ui/button";
@@ -10,9 +11,12 @@ import { useState } from "react";
 
 export default function MaterialPage() {
   const { user } = useAuth();
+  const { config: alertConfig } = useAlertConfig(user?.uid);
   const { farms, loading: farmsLoading, addFarm } = useFarms(user?.uid);
   const { modules, loading: modulesLoading, addModule, removeModule } =
-    useModules(user?.uid);
+    useModules(user?.uid, {
+      offlineThresholdMinutes: alertConfig?.offlineMinutesThreshold ?? 5,
+    });
   const [farmName, setFarmName] = useState("Ma ferme");
   const [addingFarm, setAddingFarm] = useState(false);
 
