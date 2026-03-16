@@ -130,8 +130,8 @@ export function ManualToggles({
                 {pendingCommand!.status === "confirmed"
                   ? "Confirmé"
                   : pendingCommand!.status === "timeout"
-                    ? "Délai dépassé"
-                    : "Échec"}
+                    ? "Délai dépassé (aucune réponse de la pompe)"
+                    : "Échec (commande non confirmée)"}
               </span>
               <Button variant="ghost" size="sm" onClick={onClearPending}>
                 OK

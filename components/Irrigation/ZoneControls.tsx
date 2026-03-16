@@ -59,8 +59,13 @@ export function ZoneControls({
     () => getSuggestion(humidity, forecast),
     [humidity, forecast]
   );
-  const pumpOnline = pumpModule?.online ?? false;
   const pumpId = zone.pumpModuleId ?? null;
+  const hasFailedCommand =
+    pumpId &&
+    pendingCommand &&
+    pendingCommand.moduleId === pumpId &&
+    (pendingCommand.status === "failed" || pendingCommand.status === "timeout");
+  const pumpOnline = (pumpModule?.online ?? false) && !hasFailedCommand;
   const gatewayOpts =
     pumpModule?.gatewayId && pumpModule?.deviceId
       ? { gatewayId: pumpModule.gatewayId, deviceId: pumpModule.deviceId }
