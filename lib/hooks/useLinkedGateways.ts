@@ -6,7 +6,8 @@ import { getFirebaseDb } from "@/lib/firebase";
 import type { LinkedGateway } from "@/types";
 
 const GATEWAY_ID_REGEX = /^MERE-[0-9A-Fa-f]{8}$/;
-const GATEWAY_OFFLINE_THRESHOLD_MS = 2 * 60 * 1000; // 2 min
+// Seuil prototype : 30 s sans lastSeen => hors ligne
+const GATEWAY_OFFLINE_THRESHOLD_MS = 30 * 1000;
 
 function handleDbError(error: Error) {
   const msg = error instanceof Error ? error.message : String(error);
@@ -66,7 +67,14 @@ export function useLinkedGateways(userId: string | undefined) {
         r,
         (snap) => {
           if (!snap.exists()) return;
-          setLastSeenByGateway((prev) => ({ ...prev, [g.gatewayId]: Date.now() }));
+          const val = snap.val();
+          const ms =
+            typeof val === "number"
+              ? val
+              : typeof val === "object" && val !== null && "toMillis" in val
+                ? Number((val as { toMillis: () => number }).toMillis())
+                : Date.now();
+          setLastSeenByGateway((prev) => ({ ...prev, [g.gatewayId]: ms }));
         },
         handleDbError
       );
