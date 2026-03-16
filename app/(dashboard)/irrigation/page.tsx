@@ -40,8 +40,10 @@ export default function IrrigationPage() {
     () =>
       modules.map((m) => ({
         ...m,
+        // Seuls les modules Mère héritent directement de l'état de la passerelle.
+        // Pour les pompes et champs, on garde le champ 'online' calculé côté useModules.
         online:
-          m.gatewayId != null
+          m.type === "mother" && m.gatewayId != null
             ? (gateways.find((g) => g.gatewayId === m.gatewayId)?.online ?? false)
             : m.online,
       })),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { ref, get, set, onValue } from "firebase/database";
 import { getFirebaseDb } from "@/lib/firebase";
 import type { Module, ModuleType } from "@/types";
@@ -20,6 +20,29 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
 
 function isModuleOnline(lastSeen: number, thresholdMs: number): boolean {
   return lastSeen > 0 && Date.now() - lastSeen < thresholdMs;
+}
+
+function parseTimestampMs(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    // Epoch en millisecondes (format attendu Firebase RTDB setTimestamp)
+    if (raw >= 1_000_000_000_000) return raw;
+    // Epoch en secondes (tolérance ancien format)
+    if (raw >= 1_000_000_000) return raw * 1000;
+    // Valeurs faibles (ex: uptime secondes) non exploitables comme timestamp absolu
+    return null;
+  }
+  if (typeof raw === "string") {
+    const n = Number(raw);
+    return Number.isFinite(n) ? parseTimestampMs(n) : null;
+  }
+  if (typeof raw === "object" && raw !== null && "toMillis" in raw) {
+    try {
+      return Number((raw as { toMillis: () => number }).toMillis());
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 function parseModule(
@@ -56,6 +79,8 @@ export function useModules(
 ) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(!!userId);
+  const [gatewayLastSeenByModuleId, setGatewayLastSeenByModuleId] = useState<Record<string, number>>({});
+  const [nowTick, setNowTick] = useState(Date.now());
   const thresholdMs =
     (options?.offlineThresholdMinutes ?? 5) * 60 * 1000;
 
@@ -92,6 +117,96 @@ export function useModules(
     );
     return () => unsubscribe();
   }, [userId, thresholdMs]);
+
+  const gatewayBoundModulesKey = useMemo(
+    () =>
+      modules
+        .filter((m) => (m.type === "pump" || m.type === "field") && m.gatewayId && m.deviceId)
+        .map((m) => `${m.id}:${m.gatewayId}:${m.deviceId}`)
+        .join(","),
+    [modules]
+  );
+
+  // Lecture du heartbeat/status réel côté passerelle pour les modules LoRa.
+  useEffect(() => {
+    if (!userId) {
+      setGatewayLastSeenByModuleId({});
+      return;
+    }
+    const tracked = modules.filter(
+      (m) => (m.type === "pump" || m.type === "field") && m.gatewayId && m.deviceId
+    );
+    const trackedIds = new Set(tracked.map((m) => m.id));
+    setGatewayLastSeenByModuleId((prev) => {
+      const next: Record<string, number> = {};
+      for (const [id, ts] of Object.entries(prev)) {
+        if (trackedIds.has(id)) next[id] = ts;
+      }
+      return next;
+    });
+
+    if (tracked.length === 0) return;
+
+    const unsubs: (() => void)[] = [];
+    tracked.forEach((m) => {
+      const statusRef = ref(getFirebaseDb(), `gateways/${m.gatewayId}/status/${m.deviceId}`);
+      const unsub = onValue(
+        statusRef,
+        (snap) => {
+          if (!snap.exists()) {
+            setGatewayLastSeenByModuleId((prev) => ({ ...prev, [m.id]: 0 }));
+            return;
+          }
+          const status = snap.val() as Record<string, unknown>;
+          const tsFromStatus =
+            parseTimestampMs(status?.lastSeenTs) ??
+            parseTimestampMs(status?.lastSeen);
+          // Fallback important: même sans timestamp absolu fiable, une MAJ de ce noeud
+          // signifie que le module a parlé récemment.
+          const effectiveTs = tsFromStatus ?? Date.now();
+          setGatewayLastSeenByModuleId((prev) => {
+            if (prev[m.id] === effectiveTs) return prev;
+            return { ...prev, [m.id]: effectiveTs };
+          });
+        },
+        (err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("Permission denied")) {
+            console.warn("[Firebase] Permission denied sur gateways/.../status. Vérifiez les règles.");
+          }
+          console.error("[Firebase]", err);
+        }
+      );
+      unsubs.push(unsub);
+    });
+    return () => unsubs.forEach((u) => u());
+  }, [userId, gatewayBoundModulesKey, modules]);
+
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 15000);
+    return () => clearInterval(t);
+  }, []);
+
+  const modulesWithOnline = useMemo(
+    () =>
+      modules.map((m) => {
+        const isGatewayBound =
+          (m.type === "pump" || m.type === "field") &&
+          m.gatewayId != null &&
+          m.deviceId != null;
+        if (!isGatewayBound) {
+          const online = m.lastSeen > 0 && nowTick - m.lastSeen < thresholdMs;
+          return { ...m, online };
+        }
+        const gatewayLastSeen = gatewayLastSeenByModuleId[m.id] ?? 0;
+        return {
+          ...m,
+          lastSeen: gatewayLastSeen || m.lastSeen,
+          online: gatewayLastSeen > 0 && nowTick - gatewayLastSeen < thresholdMs,
+        };
+      }),
+    [modules, gatewayLastSeenByModuleId, nowTick, thresholdMs]
+  );
 
   const addModule = useCallback(
     async (
@@ -158,7 +273,7 @@ export function useModules(
     [userId]
   );
 
-  return { modules, loading, addModule, removeModule, updateModule };
+  return { modules: modulesWithOnline, loading, addModule, removeModule, updateModule };
 }
 
 export function useModuleStatus(

@@ -32,8 +32,10 @@ export default function MaterialPage() {
     () =>
       modules.map((m) => ({
         ...m,
+        // Seuls les modules Mère héritent de l'état de la passerelle.
+        // Pour les pompes et champs, 'online' reste celui calculé côté useModules.
         online:
-          m.gatewayId != null
+          m.type === "mother" && m.gatewayId != null
             ? (gateways.find((g) => g.gatewayId === m.gatewayId)?.online ?? false)
             : m.online,
       })),
