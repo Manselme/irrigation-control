@@ -17,6 +17,7 @@
 // Objets Firebase
 FirebaseData stream;
 FirebaseData streamMessage;
+FirebaseData streamPompe;
 FirebaseAuth auth;
 FirebaseConfig config;
 bool signupOK = false;
@@ -24,14 +25,22 @@ bool signupOK = false;
 // Flag et valeur pour le callback Stream (callback = contexte limité, on fait le travail en loop)
 volatile bool vanneDataChanged = false;
 volatile bool vanneEtat = false;
+volatile bool pompeDataChanged = false;
+volatile bool pompeEtat = false;
 volatile bool messageDataChanged = false;
 String vanneMessage = "";
 
 void streamCallback(FirebaseStream data) {
-  // Appelé uniquement quand /vanne/etat change (pas de polling = très peu de trafic)
   if (data.dataType() == "boolean") {
     vanneEtat = data.boolData();
     vanneDataChanged = true;
+  }
+}
+
+void streamPompeCallback(FirebaseStream data) {
+  if (data.dataType() == "boolean") {
+    pompeEtat = data.boolData();
+    pompeDataChanged = true;
   }
 }
 
@@ -104,13 +113,18 @@ void setup() {
   if (signupOK) {
     stream.keepAlive(5, 5, 1);
     streamMessage.keepAlive(5, 5, 1);
+    streamPompe.keepAlive(5, 5, 1);
     if (!Firebase.RTDB.beginStream(&stream, "/vanne/etat"))
       Serial.printf("Stream begin error: %s\n", stream.errorReason().c_str());
     Firebase.RTDB.setStreamCallback(&stream, streamCallback, streamTimeoutCallback);
     if (!Firebase.RTDB.beginStream(&streamMessage, "/vanne/message"))
       Serial.printf("Stream message begin error: %s\n", streamMessage.errorReason().c_str());
     Firebase.RTDB.setStreamCallback(&streamMessage, streamMessageCallback, streamTimeoutCallback);
-    vanneDataChanged = true;  // Premier affichage au démarrage
+    if (!Firebase.RTDB.beginStream(&streamPompe, "/pompe/etat"))
+      Serial.printf("Stream pompe begin error: %s\n", streamPompe.errorReason().c_str());
+    Firebase.RTDB.setStreamCallback(&streamPompe, streamPompeCallback, streamTimeoutCallback);
+    vanneDataChanged = true;
+    pompeDataChanged = true;  // Premier affichage au démarrage
   }
 }
 
@@ -123,28 +137,26 @@ void loop() {
   }
 
   // Traitement des mises à jour reçues par le stream (sans polling)
-  if (vanneDataChanged || messageDataChanged) {
+  if (vanneDataChanged || messageDataChanged || pompeDataChanged) {
     vanneDataChanged = false;
     messageDataChanged = false;
-    bool etat = vanneEtat;
+    pompeDataChanged = false;
+    bool vanneOn = vanneEtat;
+    bool pompeOn = pompeEtat;
     String msg = vanneMessage;
 
-    heltec_led(etat ? 100 : 0);
+    heltec_led(vanneOn ? 100 : 0);
 
     display.clear();
     display.setFont(ArialMT_Plain_10);
-    display.drawString(0, 0, "CONTROLE VANNE");
-    display.setFont(ArialMT_Plain_16);
-    if (etat)
-      display.drawString(0, 20, ">> OUVERTE <<");
-    else
-      display.drawString(0, 20, "XX FERMEE XX");
-    display.setFont(ArialMT_Plain_10);
-    // Message personnalisé sous Ouvert/Fermé (max ~21 caractères pour une ligne 128px)
+    display.drawString(0, 0, "Pompe:");
+    display.drawString(50, 0, pompeOn ? "ACTIVE" : "OFF");
+    display.drawString(0, 14, "Vanne:");
+    display.drawString(50, 14, vanneOn ? "ACTIVE" : "OFF");
     if (msg.length() > 0) {
       String affiche = msg;
       if (affiche.length() > 21) affiche = affiche.substring(0, 21);
-      display.drawString(0, 38, affiche);
+      display.drawString(0, 28, affiche);
     }
     display.drawString(0, 50, WiFi.localIP().toString());
     display.display();

@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, ArrowLeft, RefreshCw } from "lucide-react";
 import type { SensorHistoryPoint } from "@/lib/hooks/useSensorHistory";
-import type { Zone } from "@/types";
+import type { Zone, Module } from "@/types";
 
 function getZoneCenter(zone: { polygon?: { coordinates?: number[][][] } }): { lat: number; lng: number } | null {
   const coords = zone.polygon?.coordinates?.[0];
@@ -87,13 +87,20 @@ function aggregateSensorByDay(
 
 export interface ZoneHistoryDetailProps {
   zone: Zone;
+  /** Module pompe de la zone (pour gateways V2) */
+  pumpModule?: Module | null;
   /** Afficher le lien Retour vers /history */
   showBackLink?: boolean;
   /** Afficher le titre (nom de la zone) dans le bandeau */
   showZoneTitle?: boolean;
 }
 
-export function ZoneHistoryDetail({ zone, showBackLink = true, showZoneTitle = true }: ZoneHistoryDetailProps) {
+export function ZoneHistoryDetail({
+  zone,
+  pumpModule,
+  showBackLink = true,
+  showZoneTitle = true,
+}: ZoneHistoryDetailProps) {
   const { user } = useAuth();
   const [period, setPeriod] = useState<"7" | "30" | "saison">("30");
   const [weatherDaily, setWeatherDaily] = useState<DailyWeatherWithEt0[]>([]);
@@ -116,7 +123,16 @@ export function ZoneHistoryDetail({ zone, showBackLink = true, showZoneTitle = t
   const pumpId = zone.pumpModuleId ?? undefined;
 
   const sensorPoints = useSensorHistory(user?.uid, firstFieldId ?? undefined, bounds.days);
-  const [pumpDays, refreshPumpActivity] = usePumpActivity(user?.uid, pumpId, bounds.days);
+  const pumpGatewayOpts =
+    pumpModule?.gatewayId && pumpModule?.deviceId
+      ? { gatewayId: pumpModule.gatewayId, deviceId: pumpModule.deviceId }
+      : undefined;
+  const [pumpDays, refreshPumpActivity] = usePumpActivity(
+    user?.uid,
+    pumpId,
+    bounds.days,
+    pumpGatewayOpts
+  );
 
   useEffect(() => {
     if (!bounds.start || !bounds.end) return;

@@ -43,7 +43,7 @@ export function ZoneControls({
   onZoneModeChange,
   onUpdateZoneAutoRules,
 }: ZoneControlsProps) {
-  const humidity = useZoneHumidity(userId, zone.fieldModuleIds ?? []);
+  const humidity = useZoneHumidity(userId, zone.fieldModuleIds ?? [], modules);
   const [autoSaving, setAutoSaving] = useState(false);
   const [autoHumidity, setAutoHumidity] = useState(String(zone.autoRules?.minHumidityThreshold ?? "30"));
   const [autoRain, setAutoRain] = useState(String(zone.autoRules?.rainThresholdMm ?? "10"));
@@ -61,7 +61,11 @@ export function ZoneControls({
   );
   const pumpOnline = pumpModule?.online ?? false;
   const pumpId = zone.pumpModuleId ?? null;
-  const { pumpOn, valveOpen } = useLastCommandState(userId, pumpId);
+  const gatewayOpts =
+    pumpModule?.gatewayId && pumpModule?.deviceId
+      ? { gatewayId: pumpModule.gatewayId, deviceId: pumpModule.deviceId }
+      : undefined;
+  const { pumpOn, valveOpen } = useLastCommandState(userId, pumpId, gatewayOpts);
 
   return (
     <Card className="border-border">

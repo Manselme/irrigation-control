@@ -58,10 +58,16 @@ export default function DashboardPage() {
 
   const pumpModules = modules.filter((m) => m.type === "pump");
   const pumpIds = pumpModules.map((m) => m.id);
-  const pumpStates = useAllPumpStates(user?.uid, pumpIds);
+  const pumpRefs = pumpModules.map((m) => ({
+    moduleId: m.id,
+    gatewayId: m.gatewayId,
+    deviceId: m.deviceId,
+  }));
+  const pumpStates = useAllPumpStates(user?.uid, pumpRefs);
   const humidityByZone = useAllZonesHumidity(
     user?.uid,
-    zones.map((z) => ({ id: z.id, fieldModuleIds: z.fieldModuleIds ?? [] }))
+    zones.map((z) => ({ id: z.id, fieldModuleIds: z.fieldModuleIds ?? [] })),
+    modules
   );
 
   const firstZone = zones[0];

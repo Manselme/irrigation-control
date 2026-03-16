@@ -34,17 +34,30 @@ function parsePumpActivityData(data: Record<string, unknown>, cutoff: string): P
 /** Intervalle de rafraîchissement (ms) pour forcer la mise à jour des données du jour */
 const POLL_INTERVAL_MS = 15_000;
 
+export interface PumpActivityGatewayOpts {
+  gatewayId: string;
+  deviceId: string;
+}
+
 export function usePumpActivity(
   userId: string | undefined,
   moduleId: string | undefined,
-  days: number = 30
+  days: number = 30,
+  gatewayOpts?: PumpActivityGatewayOpts
 ): [PumpActivityDay[], () => void] {
   const [daysList, setDaysList] = useState<PumpActivityDay[]>([]);
   const rangeMs = days * 24 * 60 * 60 * 1000;
 
+  const path =
+    gatewayOpts?.gatewayId && gatewayOpts?.deviceId
+      ? `gateways/${gatewayOpts.gatewayId}/pumpActivity/${gatewayOpts.deviceId}`
+      : userId && moduleId
+        ? `users/${userId}/pumpActivity/${moduleId}`
+        : "";
+
   const fetchActivity = useCallback(() => {
-    if (!userId || !moduleId) return;
-    const activityRef = ref(getFirebaseDb(), `users/${userId}/pumpActivity/${moduleId}`);
+    if (!path) return;
+    const activityRef = ref(getFirebaseDb(), path);
     const cutoff = toLocalYYYYMMDD(new Date(Date.now() - rangeMs));
     get(activityRef).then((snap) => {
       if (!snap.exists()) {
@@ -54,14 +67,14 @@ export function usePumpActivity(
       const data = snap.val() as Record<string, unknown>;
       setDaysList(parsePumpActivityData(data, cutoff));
     });
-  }, [userId, moduleId, rangeMs]);
+  }, [path, rangeMs]);
 
   useEffect(() => {
-    if (!userId || !moduleId) {
+    if (!path) {
       setDaysList([]);
       return;
     }
-    const activityRef = ref(getFirebaseDb(), `users/${userId}/pumpActivity/${moduleId}`);
+    const activityRef = ref(getFirebaseDb(), path);
     const cutoff = toLocalYYYYMMDD(new Date(Date.now() - rangeMs));
 
     const handleSnapshot = (snap: { exists: () => boolean; val: () => Record<string, unknown> }) => {
@@ -82,7 +95,7 @@ export function usePumpActivity(
       off(activityRef);
       clearInterval(pollId);
     };
-  }, [userId, moduleId, rangeMs, fetchActivity]);
+  }, [path, rangeMs, fetchActivity]);
 
   return [daysList, fetchActivity];
 }

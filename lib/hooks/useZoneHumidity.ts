@@ -3,10 +3,22 @@
 import { useState, useEffect } from "react";
 import { ref, onValue } from "firebase/database";
 import { getFirebaseDb } from "@/lib/firebase";
+import type { Module } from "@/types";
+
+function sensorPath(
+  userId: string,
+  moduleId: string,
+  mod?: Module
+): string {
+  if (mod?.gatewayId && mod?.deviceId)
+    return `gateways/${mod.gatewayId}/sensors/${mod.deviceId}`;
+  return `users/${userId}/sensorData/${moduleId}/latest`;
+}
 
 export function useZoneHumidity(
   userId: string | undefined,
-  fieldModuleIds: string[]
+  fieldModuleIds: string[],
+  modules?: Module[]
 ): number | undefined {
   const [humidity, setHumidity] = useState<number | undefined>(undefined);
 
@@ -24,21 +36,18 @@ export function useZoneHumidity(
         setHumidity(undefined);
         return;
       }
-      setHumidity(
-        list.reduce((a, b) => a + b, 0) / list.length
-      );
+      setHumidity(list.reduce((a, b) => a + b, 0) / list.length);
     };
 
     fieldModuleIds.forEach((moduleId) => {
-      const sensorRef = ref(
-        getFirebaseDb(),
-        `users/${userId}/sensorData/${moduleId}/latest`
-      );
+      const mod = modules?.find((m) => m.id === moduleId);
+      const path = sensorPath(userId, moduleId, mod);
+      const sensorRef = ref(getFirebaseDb(), path);
       const unsub = onValue(sensorRef, (snap) => {
         if (!snap.exists()) {
           delete values[moduleId];
         } else {
-          const v = snap.val()?.humidity;
+          const v = (snap.val() as { humidity?: number })?.humidity;
           if (typeof v === "number") values[moduleId] = v;
         }
         updateAvg();
@@ -47,7 +56,7 @@ export function useZoneHumidity(
     });
 
     return () => unsubscribes.forEach((u) => u());
-  }, [userId, fieldModuleIds.join(",")]);
+  }, [userId, fieldModuleIds.join(","), modules?.map((m) => m.id).join(",")]);
 
   return humidity;
 }
@@ -55,7 +64,8 @@ export function useZoneHumidity(
 /** Returns humidity per zoneId for multiple zones (one subscription set per zone). */
 export function useAllZonesHumidity(
   userId: string | undefined,
-  zones: { id: string; fieldModuleIds: string[] }[]
+  zones: { id: string; fieldModuleIds: string[] }[],
+  modules?: Module[]
 ): Record<string, number | undefined> {
   const [byZone, setByZone] = useState<Record<string, number | undefined>>({});
 
@@ -81,15 +91,14 @@ export function useAllZonesHumidity(
     zones.forEach((zone) => {
       values[zone.id] = {};
       zone.fieldModuleIds.forEach((moduleId) => {
-        const sensorRef = ref(
-          getFirebaseDb(),
-          `users/${userId}/sensorData/${moduleId}/latest`
-        );
+        const mod = modules?.find((m) => m.id === moduleId);
+        const path = sensorPath(userId, moduleId, mod);
+        const sensorRef = ref(getFirebaseDb(), path);
         const unsub = onValue(sensorRef, (snap) => {
           if (!snap.exists()) {
             delete values[zone.id][moduleId];
           } else {
-            const v = snap.val()?.humidity;
+            const v = (snap.val() as { humidity?: number })?.humidity;
             if (typeof v === "number") values[zone.id][moduleId] = v;
           }
           updateZone(zone.id);
@@ -99,7 +108,11 @@ export function useAllZonesHumidity(
     });
 
     return () => unsubscribes.forEach((u) => u());
-  }, [userId, zones.map((z) => z.id + ":" + z.fieldModuleIds.join(",")).join(";")]);
+  }, [
+    userId,
+    zones.map((z) => z.id + ":" + z.fieldModuleIds.join(",")).join(";"),
+    modules?.map((m) => m.id).join(","),
+  ]);
 
   return byZone;
 }

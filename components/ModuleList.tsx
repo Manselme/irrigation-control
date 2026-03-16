@@ -16,6 +16,7 @@ interface ModuleListProps {
   modules: Module[];
   loading: boolean;
   onRemove: (moduleId: string) => Promise<void>;
+  userId?: string;
 }
 
 export function ModuleList({
@@ -59,7 +60,8 @@ export function ModuleList({
                 <th className="text-left py-2 font-medium">Type</th>
                 <th className="text-left py-2 font-medium">État</th>
                 <th className="text-left py-2 font-medium">Batterie</th>
-                <th className="w-10" />
+                <th className="text-left py-2 font-medium">ID / Passerelle</th>
+                <th className="w-20" />
               </tr>
             </thead>
             <tbody>
@@ -103,7 +105,15 @@ export function ModuleList({
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="py-2">
+                  <td className="py-2 font-mono text-muted-foreground text-xs">
+                    {m.deviceId ?? m.factoryId ?? "—"}
+                    {m.gatewayId && (
+                      <span className="block text-muted-foreground/80" title="Passerelle">
+                        {m.gatewayId}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="icon"

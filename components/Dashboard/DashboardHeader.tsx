@@ -19,20 +19,28 @@ export function DashboardHeader({ onStopAll }: DashboardHeaderProps) {
   const { modules } = useModules(user?.uid);
   const { notifications } = useAlertNotifications(user?.uid);
   const pumpModules = modules.filter((m) => m.type === "pump");
-  const pumpIds = pumpModules.map((m) => m.id);
-  const pumpStates = useAllPumpStates(user?.uid, pumpIds);
+  const pumpRefs = pumpModules.map((m) => ({
+    moduleId: m.id,
+    gatewayId: m.gatewayId,
+    deviceId: m.deviceId,
+  }));
+  const pumpStates = useAllPumpStates(user?.uid, pumpRefs);
   const { sendCommand } = useSendCommand(user?.uid);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const anyPumpOrValveOn = pumpIds.some(
-    (id) => pumpStates[id]?.pumpOn || pumpStates[id]?.valveOpen
+  const anyPumpOrValveOn = pumpRefs.some(
+    (p) => pumpStates[p.moduleId]?.pumpOn || pumpStates[p.moduleId]?.valveOpen
   );
 
   const handleStopAll = () => {
-    pumpIds.forEach((moduleId) => {
-      const state = pumpStates[moduleId];
-      if (state?.pumpOn) sendCommand(moduleId, "PUMP_OFF");
-      if (state?.valveOpen) sendCommand(moduleId, "VALVE_CLOSE");
+    pumpModules.forEach((mod) => {
+      const state = pumpStates[mod.id];
+      const opts =
+        mod.gatewayId && mod.deviceId
+          ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId }
+          : undefined;
+      if (state?.pumpOn) sendCommand(mod.id, "PUMP_OFF", opts);
+      if (state?.valveOpen) sendCommand(mod.id, "VALVE_CLOSE", opts);
     });
     onStopAll?.();
   };

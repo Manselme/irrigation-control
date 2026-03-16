@@ -16,6 +16,23 @@ export interface Module {
   position?: Position;
   pressure?: number;
   name?: string;
+  /** ID d'usine (4 octets MAC en hex, 8 caractères) pour Champ/Pompe. Déprécié au profit de deviceId. */
+  factoryId?: string;
+  /** Passerelle qui dessert ce module (ex. MERE-A842E35C). Requis pour lecture/écriture gateways/. */
+  gatewayId?: string;
+  /** Identifiant matériel (ex. CHAMP-99887766, POMPE-1234ABCD). Si présent, les données viennent de gateways/{gatewayId}/sensors|status. */
+  deviceId?: string;
+}
+
+/** Passerelle liée au compte (AgriFlow V2). */
+export interface LinkedGateway {
+  gatewayId: string;
+  farmId: string;
+  name?: string;
+  /** Timestamp (ms) du dernier heartbeat reçu (lastSeen écrit par la Mère). */
+  lastSeen?: number;
+  /** Dérivé de lastSeen : true si lastSeen dans les 2 dernières minutes. */
+  online?: boolean;
 }
 
 export interface Farm {

@@ -26,8 +26,13 @@ export function LiveActivityWidget({
 
   const handleStop = (moduleId: string) => {
     const state = pumpStates[moduleId];
-    if (state?.pumpOn) sendCommand(moduleId, "PUMP_OFF");
-    if (state?.valveOpen) sendCommand(moduleId, "VALVE_CLOSE");
+    const mod = pumpModules.find((m) => m.id === moduleId);
+    const opts =
+      mod?.gatewayId && mod?.deviceId
+        ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId }
+        : undefined;
+    if (state?.pumpOn) sendCommand(moduleId, "PUMP_OFF", opts);
+    if (state?.valveOpen) sendCommand(moduleId, "VALVE_CLOSE", opts);
   };
 
   return (

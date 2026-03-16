@@ -9,21 +9,31 @@ export interface PumpState {
   valveOpen: boolean;
 }
 
+export interface PumpModuleRef {
+  moduleId: string;
+  gatewayId?: string;
+  deviceId?: string;
+}
+
 export function useAllPumpStates(
   userId: string | undefined,
-  pumpModuleIds: string[]
+  pumps: PumpModuleRef[]
 ): Record<string, PumpState> {
   const [states, setStates] = useState<Record<string, PumpState>>({});
 
   useEffect(() => {
-    if (!userId || pumpModuleIds.length === 0) {
+    if (!userId || pumps.length === 0) {
       setStates({});
       return;
     }
     const unsubs: (() => void)[] = [];
 
-    pumpModuleIds.forEach((moduleId) => {
-      const stateRef = ref(getFirebaseDb(), `users/${userId}/actuatorState/${moduleId}`);
+    pumps.forEach(({ moduleId, gatewayId, deviceId }) => {
+      const path =
+        gatewayId && deviceId
+          ? `gateways/${gatewayId}/status/${deviceId}`
+          : `users/${userId}/actuatorState/${moduleId}`;
+      const stateRef = ref(getFirebaseDb(), path);
       const unsub = onValue(stateRef, (snap) => {
         const state: PumpState = snap.exists()
           ? {
@@ -37,7 +47,7 @@ export function useAllPumpStates(
     });
 
     return () => unsubs.forEach((u) => u());
-  }, [userId, pumpModuleIds.join(",")]);
+  }, [userId, pumps.map((p) => `${p.moduleId}:${p.gatewayId ?? ""}:${p.deviceId ?? ""}`).join(",")]);
 
   return states;
 }

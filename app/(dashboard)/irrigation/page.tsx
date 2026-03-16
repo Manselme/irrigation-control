@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
 import { useModules } from "@/lib/hooks/useModules";
+import { useLinkedGateways } from "@/lib/hooks/useLinkedGateways";
 import { useAlertConfig } from "@/lib/hooks/useAlerts";
 import { useZones } from "@/lib/hooks/useZones";
 import { useSendCommand } from "@/lib/hooks/useCommands";
@@ -34,6 +35,18 @@ export default function IrrigationPage() {
   const { modules } = useModules(user?.uid, {
     offlineThresholdMinutes: alertConfig?.offlineMinutesThreshold ?? 5,
   });
+  const { gateways } = useLinkedGateways(user?.uid);
+  const modulesWithGatewayStatus = useMemo(
+    () =>
+      modules.map((m) => ({
+        ...m,
+        online:
+          m.gatewayId != null
+            ? (gateways.find((g) => g.gatewayId === m.gatewayId)?.online ?? false)
+            : m.online,
+      })),
+    [modules, gateways]
+  );
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const { zones: allZones } = useZones(user?.uid, null);
   const { zones, updateZone } = useZones(user?.uid, selectedFarmId);
@@ -50,10 +63,22 @@ export default function IrrigationPage() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [zoneIdFromUrl, zones.length]);
   const { sendCommand, pendingCommand, clearPending } = useSendCommand(user?.uid);
+  const handleSendCommand = useCallback(
+    (moduleId: string, type: "VALVE_OPEN" | "VALVE_CLOSE" | "PUMP_ON" | "PUMP_OFF") => {
+      const mod = modulesWithGatewayStatus.find((m) => m.id === moduleId);
+      const opts =
+        mod?.gatewayId && mod?.deviceId
+          ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId }
+          : undefined;
+      sendCommand(moduleId, type, opts);
+    },
+    [modulesWithGatewayStatus, sendCommand]
+  );
   const [forecast, setForecast] = useState<ForecastDay[] | null>(null);
   const humidityByZone = useAllZonesHumidity(
     user?.uid,
-    zones.map((z) => ({ id: z.id, fieldModuleIds: z.fieldModuleIds ?? [] }))
+    zones.map((z) => ({ id: z.id, fieldModuleIds: z.fieldModuleIds ?? [] })),
+    modulesWithGatewayStatus
   );
 
   const lat = zones[0] ? getZoneCenter(zones[0])?.lat ?? DEFAULT_LAT : DEFAULT_LAT;
@@ -88,11 +113,11 @@ export default function IrrigationPage() {
           if (firstLow === undefined) firstLowAtRef.current[zone.id] = now;
           const elapsed = now - (firstLowAtRef.current[zone.id] ?? now);
           if (elapsed >= delayMs) {
-            sendCommand(zone.pumpModuleId, "PUMP_ON");
+            handleSendCommand(zone.pumpModuleId, "PUMP_ON");
           }
         } else {
           delete firstLowAtRef.current[zone.id];
-          sendCommand(zone.pumpModuleId, "PUMP_OFF");
+          handleSendCommand(zone.pumpModuleId, "PUMP_OFF");
         }
       });
     };
@@ -101,7 +126,7 @@ export default function IrrigationPage() {
     const intervalMs = intervalMin * 60 * 1000;
     const interval = setInterval(runAuto, intervalMs);
     return () => clearInterval(interval);
-  }, [user?.uid, zones, forecast, humidityByZone, sendCommand]);
+  }, [user?.uid, zones, forecast, humidityByZone, handleSendCommand]);
 
   const handleZoneModeChange = useCallback(
     (zoneId: string, mode: "manual" | "auto") => {
@@ -143,20 +168,20 @@ export default function IrrigationPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {zones.map((zone) => {
             const pumpModule = zone.pumpModuleId
-              ? modules.find((m) => m.id === zone.pumpModuleId) ?? null
+              ? modulesWithGatewayStatus.find((m) => m.id === zone.pumpModuleId) ?? null
               : null;
             const center = getZoneCenter(zone);
             return (
               <div key={zone.id} id={zoneIdFromUrl === zone.id ? "zone-target" : undefined}>
                 <ZoneControls
                   zone={zone}
-                  modules={modules}
+                  modules={modulesWithGatewayStatus}
                   pumpModule={pumpModule}
                   userId={user?.uid}
                   forecast={forecast}
                   zoneCenter={center}
                   pendingCommand={pendingCommand}
-                  onSendCommand={sendCommand}
+                  onSendCommand={handleSendCommand}
                   onClearPending={clearPending}
                   onZoneModeChange={handleZoneModeChange}
                   onUpdateZoneAutoRules={(zoneId, autoRules) => updateZone(zoneId, { autoRules })}

@@ -5,6 +5,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
 import { useZones } from "@/lib/hooks/useZones";
+import { useModules } from "@/lib/hooks/useModules";
 import { ZoneHistoryDetail } from "@/components/Zones/ZoneHistoryDetail";
 
 export default function HistoryPage() {
@@ -15,6 +16,7 @@ export default function HistoryPage() {
   const zoneIdFromUrl = searchParams.get("zone");
 
   const { farms } = useFarms(user?.uid);
+  const { modules } = useModules(user?.uid);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const { zones } = useZones(user?.uid, selectedFarmId);
 
@@ -102,6 +104,11 @@ export default function HistoryPage() {
       ) : selectedZone ? (
         <ZoneHistoryDetail
           zone={selectedZone}
+          pumpModule={
+            selectedZone.pumpModuleId
+              ? modules.find((m) => m.id === selectedZone.pumpModuleId) ?? null
+              : null
+          }
           showBackLink={false}
           showZoneTitle={true}
         />

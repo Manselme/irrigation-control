@@ -7,6 +7,17 @@ import type { Module, ModuleType } from "@/types";
 
 const DEFAULT_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
+/** Firebase Realtime Database n'accepte pas les valeurs undefined. Retourne une copie sans clés undefined. */
+function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  const out = { ...obj } as T;
+  for (const key of Object.keys(out)) {
+    if ((out as Record<string, unknown>)[key] === undefined) {
+      delete (out as Record<string, unknown>)[key];
+    }
+  }
+  return out;
+}
+
 function isModuleOnline(lastSeen: number, thresholdMs: number): boolean {
   return lastSeen > 0 && Date.now() - lastSeen < thresholdMs;
 }
@@ -28,6 +39,9 @@ function parseModule(
     position: data.position as Module["position"],
     pressure: data.pressure as number | undefined,
     name: data.name as string | undefined,
+    factoryId: data.factoryId as string | undefined,
+    gatewayId: data.gatewayId as string | undefined,
+    deviceId: data.deviceId as string | undefined,
   };
 }
 
@@ -52,33 +66,60 @@ export function useModules(
       return;
     }
     const modulesRef = ref(getFirebaseDb(), `users/${userId}/modules`);
-    const unsubscribe = onValue(modulesRef, (snap) => {
-      if (!snap.exists()) {
-        setModules([]);
-      } else {
-        const data = snap.val();
-        setModules(
-          Object.entries(data).map(([id, v]) =>
-            parseModule(id, v as Record<string, unknown>, thresholdMs)
-          )
-        );
+    const unsubscribe = onValue(
+      modulesRef,
+      (snap) => {
+        if (!snap.exists()) {
+          setModules([]);
+        } else {
+          const data = snap.val();
+          setModules(
+            Object.entries(data).map(([id, v]) =>
+              parseModule(id, v as Record<string, unknown>, thresholdMs)
+            )
+          );
+        }
+        setLoading(false);
+      },
+      (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("Permission denied")) {
+          console.warn("[Firebase] Permission denied sur modules. Vérifiez les règles et la connexion.");
+        }
+        console.error("[Firebase]", err);
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    );
     return () => unsubscribe();
   }, [userId, thresholdMs]);
 
   const addModule = useCallback(
-    async (moduleId: string, type: ModuleType, farmId: string) => {
+    async (
+      moduleId: string,
+      type: ModuleType,
+      farmId: string,
+      factoryId?: string,
+      options?: { gatewayId?: string; deviceId?: string }
+    ) => {
       if (!userId) return;
-      const moduleRef = ref(getFirebaseDb(), `users/${userId}/modules/${moduleId}`);
-      await set(moduleRef, {
+      const id = options?.deviceId?.trim() || moduleId.trim();
+      const moduleRef = ref(getFirebaseDb(), `users/${userId}/modules/${id}`);
+      const payload: Record<string, unknown> = {
         type,
         farmId,
         lastSeen: 0,
         online: false,
-        fieldModuleIds: type === "field" ? [] : undefined,
-      });
+      };
+      if (type === "field") payload.fieldModuleIds = [];
+      else delete (payload as Record<string, unknown>).fieldModuleIds;
+      if (factoryId != null && /^[0-9A-Fa-f]{8}$/.test(factoryId)) {
+        payload.factoryId = factoryId;
+      }
+      if (options?.gatewayId != null && options.gatewayId !== "")
+        payload.gatewayId = options.gatewayId;
+      if (options?.deviceId != null && options.deviceId !== "")
+        payload.deviceId = options.deviceId.trim();
+      await set(moduleRef, stripUndefined(payload));
     },
     [userId]
   );
@@ -98,7 +139,7 @@ export function useModules(
       updates: Partial<
         Pick<
           Module,
-          "battery" | "online" | "pressure" | "position" | "name" | "lastSeen"
+          "battery" | "online" | "pressure" | "position" | "name" | "lastSeen" | "factoryId" | "gatewayId" | "deviceId"
         >
       >
     ) => {
@@ -107,7 +148,11 @@ export function useModules(
       const snap = await get(moduleRef);
       if (!snap.exists()) return;
       const current = snap.val() as Record<string, unknown>;
-      const next = { ...current, ...updates };
+      let next: Record<string, unknown> = stripUndefined({ ...current, ...updates });
+      if (next.type !== "field" && "fieldModuleIds" in next) {
+        next = { ...next };
+        delete next.fieldModuleIds;
+      }
       await set(moduleRef, next);
     },
     [userId]

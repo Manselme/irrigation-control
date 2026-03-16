@@ -5,6 +5,7 @@ import { useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useZones } from "@/lib/hooks/useZones";
+import { useModules } from "@/lib/hooks/useModules";
 import { ZoneHistoryDetail } from "@/components/Zones/ZoneHistoryDetail";
 import { Button } from "@/components/ui/button";
 
@@ -14,7 +15,12 @@ export default function ZoneHistoryPage() {
   const zoneId = params.zoneId as string;
   const { user } = useAuth();
   const { zones } = useZones(user?.uid, null);
+  const { modules } = useModules(user?.uid);
   const zone = useMemo(() => zones.find((z) => z.id === zoneId), [zones, zoneId]);
+  const pumpModule = useMemo(
+    () => (zone?.pumpModuleId ? modules.find((m) => m.id === zone.pumpModuleId) ?? null : null),
+    [zone?.pumpModuleId, modules]
+  );
 
   useEffect(() => {
     if (zones.length > 0 && zone) {
@@ -44,6 +50,7 @@ export default function ZoneHistoryPage() {
   return (
     <ZoneHistoryDetail
       zone={zone}
+      pumpModule={pumpModule}
       showBackLink={true}
       showZoneTitle={true}
     />
