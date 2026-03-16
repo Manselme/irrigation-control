@@ -47,18 +47,14 @@ export function QrScannerModal({ open, onOpenChange, onScan }: QrScannerModalPro
     import("qr-scanner")
       .then(({ default: QrScanner }) => {
         if (!mounted || !open || !video) return;
-        const scanner = new QrScanner(
-          video,
-          (result: string) => {
-            const id = parseFactoryIdFromQr(result);
-            if (id) {
-              stopScanner();
-              onScan(id);
-              onOpenChange(false);
-            }
-          },
-          { returnDetailedScanResult: false }
-        );
+        const scanner = new QrScanner(video, (result: string) => {
+          const id = parseFactoryIdFromQr(result);
+          if (id) {
+            stopScanner();
+            onScan(id);
+            onOpenChange(false);
+          }
+        });
         scannerRef.current = scanner;
         scanner.start();
       })
