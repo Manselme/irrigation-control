@@ -28,7 +28,8 @@ interface QrScannerModalProps {
 
 export function QrScannerModal({ open, onOpenChange, onScan }: QrScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const scannerRef = useRef<import("qr-scanner").QrScanner | null>(null);
+  type QrScannerInstance = InstanceType<typeof import("qr-scanner")["default"]>;
+  const scannerRef = useRef<QrScannerInstance | null>(null);
 
   const stopScanner = useCallback(() => {
     if (scannerRef.current) {
@@ -44,7 +45,7 @@ export function QrScannerModal({ open, onOpenChange, onScan }: QrScannerModalPro
     const video = videoRef.current;
 
     import("qr-scanner")
-      .then(({ QrScanner }) => {
+      .then(({ default: QrScanner }) => {
         if (!mounted || !open || !video) return;
         const scanner = new QrScanner(
           video,
