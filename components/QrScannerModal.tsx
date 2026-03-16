@@ -49,8 +49,8 @@ export function QrScannerModal({ open, onOpenChange, onScan }: QrScannerModalPro
         if (!mounted || !open || !video) return;
         const scanner = new QrScanner(
           video,
-          (result) => {
-            const id = parseFactoryIdFromQr(result.data);
+          (result: string) => {
+            const id = parseFactoryIdFromQr(result);
             if (id) {
               stopScanner();
               onScan(id);
