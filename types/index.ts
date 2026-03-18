@@ -1,4 +1,5 @@
 export type ModuleType = "mother" | "pump" | "field";
+export type ValveSlot = "A" | "B";
 
 export interface Position {
   lat: number;
@@ -22,6 +23,17 @@ export interface Module {
   gatewayId?: string;
   /** Identifiant matériel (ex. CHAMP-99887766, POMPE-1234ABCD). Si présent, les données viennent de gateways/{gatewayId}/sensors|status. */
   deviceId?: string;
+  /** V2.2: configuration hydraulique de la pompe (rétrocompatible, optionnelle). */
+  hydraulicSettings?: {
+    pipeDiameterMm?: number;
+    referencePressureBar?: number;
+    updatedAt?: number;
+  };
+  /** V2.2: vannes logiques d'un module pompe. */
+  valves?: {
+    A?: { name?: string; zoneId?: string; status?: "ON" | "OFF" };
+    B?: { name?: string; zoneId?: string; status?: "ON" | "OFF" };
+  };
 }
 
 /** Passerelle liée au compte (AgriFlow V2). */
@@ -41,13 +53,36 @@ export interface Farm {
   center?: Position;
 }
 
+export interface UserProfile {
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  email?: string;
+  photoURL?: string;
+  updatedAt?: number;
+}
+
 export interface Zone {
   id: string;
   farmId: string;
   name: string;
   polygon: { type: "Polygon"; coordinates: number[][][] };
+  /** V2.1: sous-polygones de la zone (rétrocompatible: dérivé de polygon si absent). */
+  sectors?: {
+    id: string;
+    name: string;
+    polygon: { type: "Polygon"; coordinates: number[][][] };
+    valveModuleIds?: string[];
+    /** V2.2: vanne logique qui alimente ce secteur. */
+    valveSlot?: ValveSlot;
+  }[];
   mode: "manual" | "auto";
+  /** V1: pompe unique (conservé pour rétrocompatibilité). */
   pumpModuleId?: string;
+  /** V2.1: multi-pompes possibles. */
+  pumpModuleIds?: string[];
+  /** V2.1: vannes possibles au niveau zone. */
+  valveModuleIds?: string[];
   fieldModuleIds: string[];
   autoRules?: {
     minHumidityThreshold?: number;
@@ -63,7 +98,15 @@ export type CommandStatus = "pending" | "confirmed" | "failed";
 
 export interface Command {
   id: string;
-  type: "VALVE_OPEN" | "VALVE_CLOSE" | "PUMP_ON" | "PUMP_OFF";
+  type:
+    | "VALVE_OPEN"
+    | "VALVE_CLOSE"
+    | "VALVE_A_OPEN"
+    | "VALVE_A_CLOSE"
+    | "VALVE_B_OPEN"
+    | "VALVE_B_CLOSE"
+    | "PUMP_ON"
+    | "PUMP_OFF";
   status: CommandStatus;
   createdAt: number;
   confirmedAt?: number;
@@ -85,6 +128,8 @@ export interface SensorDataPoint {
 export interface AlertConfig {
   batteryThreshold?: number;
   pressureDropThreshold?: number;
+  /** Tension sol (cb) au-dessus de laquelle on alerte un stress hydrique. */
+  stressTensionThreshold?: number;
   offlineMinutesThreshold?: number;
   /** Délai avant réarmement après retour à la normale (minutes). Défaut 1. */
   rearmMinutes?: number;
@@ -92,7 +137,7 @@ export interface AlertConfig {
 
 export interface AlertNotification {
   id: string;
-  type: "battery" | "pressure" | "offline";
+  type: "battery" | "pressure" | "offline" | "stress";
   message: string;
   moduleId?: string;
   zoneId?: string;
@@ -106,4 +151,17 @@ export interface WeatherCacheEntry {
   date: string;
   precipitationMm: number;
   fetchedAt: number;
+}
+
+export interface FlowEstimatePumpDay {
+  volume_m3: number;
+  minutesOn: number;
+  pressureBar?: number;
+  updatedAt: number;
+}
+
+export interface FlowEstimateZoneDay {
+  volume_m3: number;
+  minutesOn: number;
+  updatedAt: number;
 }

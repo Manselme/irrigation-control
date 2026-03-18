@@ -16,8 +16,7 @@ export default function AlertsPage() {
   const { notifications, markAsRead, addNotification } = useAlertNotifications(
     user?.uid
   );
-  const moduleIds = modules.map((m) => m.id);
-  const latestSensorByModule = useLatestSensorMap(user?.uid, moduleIds);
+  const latestSensorByModule = useLatestSensorMap(user?.uid, modules);
 
   useAlertDetection(
     user?.uid,
@@ -27,6 +26,11 @@ export default function AlertsPage() {
     notifications,
     addNotification
   );
+
+  const handleMarkAllAsRead = async () => {
+    const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
+    await Promise.all(unreadIds.map((id) => markAsRead(id)));
+  };
 
   return (
     <div className="space-y-6">
@@ -39,7 +43,11 @@ export default function AlertsPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <AlertConfigForm config={config} onUpdate={updateConfig} />
-        <AlertList notifications={notifications} onMarkAsRead={markAsRead} />
+        <AlertList
+          notifications={notifications}
+          onMarkAsRead={markAsRead}
+          onMarkAllAsRead={handleMarkAllAsRead}
+        />
       </div>
     </div>
   );

@@ -26,12 +26,14 @@ export function AlertConfigForm({ config, onUpdate }: AlertConfigFormProps) {
   const [pressure, setPressure] = useState(
     String(config.pressureDropThreshold ?? "")
   );
+  const [stress, setStress] = useState(String(config.stressTensionThreshold ?? "60"));
   const [rearm, setRearm] = useState(String(config.rearmMinutes ?? "1"));
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     setBattery(String(config.batteryThreshold ?? ""));
     setOffline(String(config.offlineMinutesThreshold ?? ""));
     setPressure(String(config.pressureDropThreshold ?? ""));
+    setStress(String(config.stressTensionThreshold ?? "60"));
     setRearm(String(config.rearmMinutes ?? "1"));
   }, [config]);
 
@@ -42,6 +44,7 @@ export function AlertConfigForm({ config, onUpdate }: AlertConfigFormProps) {
         batteryThreshold: battery ? Number(battery) : undefined,
         offlineMinutesThreshold: offline ? Number(offline) : undefined,
         pressureDropThreshold: pressure ? Number(pressure) : undefined,
+        stressTensionThreshold: stress ? Number(stress) : undefined,
         rearmMinutes: rearm !== "" ? Number(rearm) : undefined,
       });
     } finally {
@@ -92,6 +95,18 @@ export function AlertConfigForm({ config, onUpdate }: AlertConfigFormProps) {
             value={pressure}
             onChange={(e) => setPressure(e.target.value)}
             placeholder="optionnel"
+            className="border-border"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="stress">Stress hydrique (cb)</Label>
+          <Input
+            id="stress"
+            type="number"
+            min={0}
+            value={stress}
+            onChange={(e) => setStress(e.target.value)}
+            placeholder="60"
             className="border-border"
           />
         </div>

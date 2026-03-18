@@ -96,7 +96,7 @@ export function useAlertNotifications(userId: string | undefined) {
   return { notifications, markAsRead, addNotification };
 }
 
-const ALERT_TYPES = ["battery", "pressure", "offline"] as const;
+const ALERT_TYPES = ["battery", "pressure", "offline", "stress"] as const;
 
 export function useAlertDetection(
   userId: string | undefined,

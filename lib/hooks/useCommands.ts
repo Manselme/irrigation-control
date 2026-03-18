@@ -37,6 +37,18 @@ export function useSendCommand(userId: string | undefined) {
       const commandId = `cmd_${Date.now()}`;
 
       if (gatewayOpts?.gatewayId && gatewayOpts?.deviceId) {
+        const gatewayType: CommandType =
+          type === "VALVE_A_OPEN" || type === "VALVE_B_OPEN"
+            ? "VALVE_OPEN"
+            : type === "VALVE_A_CLOSE" || type === "VALVE_B_CLOSE"
+              ? "VALVE_CLOSE"
+              : type;
+        const valveSlot =
+          type === "VALVE_A_OPEN" || type === "VALVE_A_CLOSE"
+            ? "A"
+            : type === "VALVE_B_OPEN" || type === "VALVE_B_CLOSE"
+              ? "B"
+              : undefined;
         const currentRef = ref(
           getFirebaseDb(),
           `gateways/${gatewayOpts.gatewayId}/commands/current`
@@ -44,10 +56,11 @@ export function useSendCommand(userId: string | undefined) {
         try {
           await set(currentRef, {
             dest: gatewayOpts.deviceId,
-            type,
+            type: gatewayType,
             id: commandId,
             status: "pending",
             createdAt: Date.now(),
+            valveSlot,
           });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
@@ -87,16 +100,37 @@ export function useSendCommand(userId: string | undefined) {
             const prevPromise = flushPromiseByModuleRef.current[moduleId] ?? Promise.resolve();
             const nextPromise = prevPromise.then(() =>
               runTransaction(stateRef, (cur) => {
-                const prev = (cur as { pumpOn?: boolean; valveOpen?: boolean } | null) ?? {};
+                const prev =
+                  (cur as {
+                    pumpOn?: boolean;
+                    valveOpen?: boolean;
+                    valveAOpen?: boolean;
+                    valveBOpen?: boolean;
+                  } | null) ?? {};
                 let pumpOn = prev.pumpOn ?? false;
                 let valveOpen = prev.valveOpen ?? false;
+                let valveAOpen = prev.valveAOpen ?? prev.valveOpen ?? false;
+                let valveBOpen = prev.valveBOpen ?? prev.valveOpen ?? false;
                 for (const t of intents) {
                   if (t === "PUMP_ON") pumpOn = true;
                   else if (t === "PUMP_OFF") pumpOn = false;
                   else if (t === "VALVE_OPEN") valveOpen = true;
                   else if (t === "VALVE_CLOSE") valveOpen = false;
+                  else if (t === "VALVE_A_OPEN") {
+                    valveAOpen = true;
+                    valveOpen = true;
+                  } else if (t === "VALVE_A_CLOSE") {
+                    valveAOpen = false;
+                    valveOpen = valveBOpen;
+                  } else if (t === "VALVE_B_OPEN") {
+                    valveBOpen = true;
+                    valveOpen = true;
+                  } else if (t === "VALVE_B_CLOSE") {
+                    valveBOpen = false;
+                    valveOpen = valveAOpen;
+                  }
                 }
-                return { pumpOn, valveOpen };
+                return { pumpOn, valveOpen, valveAOpen, valveBOpen };
               })
             ).then(() => {});
             flushPromiseByModuleRef.current[moduleId] = nextPromise;
@@ -173,12 +207,30 @@ export function useLastCommandState(
   userId: string | undefined,
   moduleId: string | null,
   gatewayOpts?: LastCommandStateGatewayOpts
-): { pumpOn: boolean; valveOpen: boolean } {
-  const [state, setState] = useState({ pumpOn: false, valveOpen: false });
+): {
+  pumpOn: boolean;
+  valveOpen: boolean;
+  valveAOpen: boolean;
+  valveBOpen: boolean;
+  lastPumpOnAt: number | null;
+} {
+  const [state, setState] = useState({
+    pumpOn: false,
+    valveOpen: false,
+    valveAOpen: false,
+    valveBOpen: false,
+    lastPumpOnAt: null as number | null,
+  });
 
   useEffect(() => {
     if (!userId || !moduleId) {
-      setState({ pumpOn: false, valveOpen: false });
+      setState({
+        pumpOn: false,
+        valveOpen: false,
+        valveAOpen: false,
+        valveBOpen: false,
+        lastPumpOnAt: null,
+      });
       return;
     }
     const useGateway =
@@ -194,11 +246,19 @@ export function useLastCommandState(
 
     const unsubState = onValue(stateRef, (snap) => {
       if (snap.exists()) {
-        const data = snap.val() as { pumpOn?: boolean; valveOpen?: boolean };
-        setState({
+        const data = snap.val() as {
+          pumpOn?: boolean;
+          valveOpen?: boolean;
+          valveAOpen?: boolean;
+          valveBOpen?: boolean;
+        };
+        setState((prev) => ({
           pumpOn: data.pumpOn ?? false,
           valveOpen: data.valveOpen ?? false,
-        });
+          valveAOpen: data.valveAOpen ?? data.valveOpen ?? false,
+          valveBOpen: data.valveBOpen ?? data.valveOpen ?? false,
+          lastPumpOnAt: prev.lastPumpOnAt,
+        }));
         return;
       }
       if (!useGateway) {
@@ -207,12 +267,33 @@ export function useLastCommandState(
           const cmd = cmdSnap.val() as { type?: string; status?: string };
           const type = cmd?.type;
           if (!type) return;
-          const derived = { pumpOn: false, valveOpen: false };
+          const derived = { pumpOn: false, valveOpen: false, valveAOpen: false, valveBOpen: false };
           if (type === "PUMP_ON") derived.pumpOn = true;
           else if (type === "PUMP_OFF") derived.pumpOn = false;
           else if (type === "VALVE_OPEN") derived.valveOpen = true;
           else if (type === "VALVE_CLOSE") derived.valveOpen = false;
-          setState(derived);
+          else if (type === "VALVE_A_OPEN") {
+            derived.valveAOpen = true;
+            derived.valveOpen = true;
+          } else if (type === "VALVE_A_CLOSE") {
+            derived.valveAOpen = false;
+            derived.valveOpen = false;
+          } else if (type === "VALVE_B_OPEN") {
+            derived.valveBOpen = true;
+            derived.valveOpen = true;
+          } else if (type === "VALVE_B_CLOSE") {
+            derived.valveBOpen = false;
+            derived.valveOpen = false;
+          }
+          setState({
+            ...derived,
+            lastPumpOnAt:
+              type === "PUMP_ON"
+                ? ((cmdSnap.val() as { confirmedAt?: number; createdAt?: number }).confirmedAt ??
+                  (cmdSnap.val() as { confirmedAt?: number; createdAt?: number }).createdAt ??
+                  null)
+                : null,
+          });
           set(stateRef, derived).catch(() => {});
         });
       }
@@ -220,20 +301,56 @@ export function useLastCommandState(
 
     const unsubCmd = onValue(commandsRef, (snap) => {
       if (!snap.exists()) return;
-      const data = snap.val() as { type?: string; status?: string; dest?: string };
+      const data = snap.val() as {
+        type?: string;
+        status?: string;
+        dest?: string;
+        confirmedAt?: number;
+        createdAt?: number;
+      };
       if (data?.status !== "confirmed" || !data?.type) return;
       if (useGateway && data.dest !== gatewayOpts?.deviceId) return;
       const type = data.type;
       runTransaction(stateRef, (cur) => {
-        const prev = (cur as { pumpOn?: boolean; valveOpen?: boolean } | null) ?? {};
+        const prev =
+          (cur as {
+            pumpOn?: boolean;
+            valveOpen?: boolean;
+            valveAOpen?: boolean;
+            valveBOpen?: boolean;
+          } | null) ?? {};
         let pumpOn = prev.pumpOn ?? false;
         let valveOpen = prev.valveOpen ?? false;
+        let valveAOpen = prev.valveAOpen ?? prev.valveOpen ?? false;
+        let valveBOpen = prev.valveBOpen ?? prev.valveOpen ?? false;
         if (type === "PUMP_ON") pumpOn = true;
         else if (type === "PUMP_OFF") pumpOn = false;
         else if (type === "VALVE_OPEN") valveOpen = true;
         else if (type === "VALVE_CLOSE") valveOpen = false;
-        return { pumpOn, valveOpen };
-      }).catch(() => {});
+        else if (type === "VALVE_A_OPEN") {
+          valveAOpen = true;
+          valveOpen = true;
+        } else if (type === "VALVE_A_CLOSE") {
+          valveAOpen = false;
+          valveOpen = valveBOpen;
+        } else if (type === "VALVE_B_OPEN") {
+          valveBOpen = true;
+          valveOpen = true;
+        } else if (type === "VALVE_B_CLOSE") {
+          valveBOpen = false;
+          valveOpen = valveAOpen;
+        }
+        return { pumpOn, valveOpen, valveAOpen, valveBOpen };
+      })
+        .then(() => {
+          if (type === "PUMP_ON") {
+            setState((prev) => ({
+              ...prev,
+              lastPumpOnAt: data.confirmedAt ?? data.createdAt ?? Date.now(),
+            }));
+          }
+        })
+        .catch(() => {});
     });
 
     return () => {

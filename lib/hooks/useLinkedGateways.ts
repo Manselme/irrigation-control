@@ -9,6 +9,26 @@ const GATEWAY_ID_REGEX = /^MERE-[0-9A-Fa-f]{8}$/;
 // Seuil prototype : 30 s sans lastSeen => hors ligne
 const GATEWAY_OFFLINE_THRESHOLD_MS = 30 * 1000;
 
+function parseTimestampMs(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    if (raw >= 1_000_000_000_000) return raw;
+    if (raw >= 1_000_000_000) return raw * 1000;
+    return null;
+  }
+  if (typeof raw === "string") {
+    const n = Number(raw);
+    return Number.isFinite(n) ? parseTimestampMs(n) : null;
+  }
+  if (typeof raw === "object" && raw !== null && "toMillis" in raw) {
+    try {
+      return Number((raw as { toMillis: () => number }).toMillis());
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function handleDbError(error: Error) {
   const msg = error instanceof Error ? error.message : String(error);
   if (msg.includes("Permission denied") || msg.includes("permission_denied")) {
@@ -68,12 +88,7 @@ export function useLinkedGateways(userId: string | undefined) {
         (snap) => {
           if (!snap.exists()) return;
           const val = snap.val();
-          const ms =
-            typeof val === "number"
-              ? val
-              : typeof val === "object" && val !== null && "toMillis" in val
-                ? Number((val as { toMillis: () => number }).toMillis())
-                : Date.now();
+          const ms = parseTimestampMs(val) ?? 0;
           setLastSeenByGateway((prev) => ({ ...prev, [g.gatewayId]: ms }));
         },
         handleDbError

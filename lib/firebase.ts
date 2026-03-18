@@ -1,6 +1,7 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getDatabase, Database } from "firebase/database";
+import { getStorage, FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -15,6 +16,7 @@ const firebaseConfig = {
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Database | undefined;
+let storage: FirebaseStorage | undefined;
 
 function initFirebase() {
   if (typeof window === "undefined") return;
@@ -22,10 +24,12 @@ function initFirebase() {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getDatabase(app);
+    storage = getStorage(app);
   } else {
     app = getApps()[0] as FirebaseApp;
     auth = getAuth(app);
     db = getDatabase(app);
+    storage = getStorage(app);
   }
 }
 
@@ -41,4 +45,10 @@ export function getFirebaseDb(): Database {
   return db;
 }
 
-export { app, auth, db };
+export function getFirebaseStorage(): FirebaseStorage {
+  if (typeof window !== "undefined" && !storage) initFirebase();
+  if (!storage) throw new Error("Firebase Storage is only available on the client.");
+  return storage;
+}
+
+export { app, auth, db, storage };

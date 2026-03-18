@@ -24,10 +24,25 @@ interface ZoneControlsProps {
   forecast: ForecastDay[] | null;
   zoneCenter: { lat: number; lng: number } | null;
   pendingCommand: { moduleId: string; type: string; status: string } | null;
-  onSendCommand: (moduleId: string, type: "VALVE_OPEN" | "VALVE_CLOSE" | "PUMP_ON" | "PUMP_OFF") => void;
+  onSendCommand: (
+    moduleId: string,
+    type:
+      | "VALVE_OPEN"
+      | "VALVE_CLOSE"
+      | "VALVE_A_OPEN"
+      | "VALVE_A_CLOSE"
+      | "VALVE_B_OPEN"
+      | "VALVE_B_CLOSE"
+      | "PUMP_ON"
+      | "PUMP_OFF"
+  ) => void;
   onClearPending: () => void;
   onZoneModeChange: (zoneId: string, mode: "manual" | "auto") => void;
   onUpdateZoneAutoRules: (zoneId: string, autoRules: Zone["autoRules"]) => void;
+  onUpdateZoneModules: (
+    zoneId: string,
+    links: { pumpModuleId?: string; fieldModuleIds: string[] }
+  ) => Promise<void>;
 }
 
 export function ZoneControls({
@@ -42,6 +57,7 @@ export function ZoneControls({
   onClearPending,
   onZoneModeChange,
   onUpdateZoneAutoRules,
+  onUpdateZoneModules,
 }: ZoneControlsProps) {
   const humidity = useZoneHumidity(userId, zone.fieldModuleIds ?? [], modules);
   const [autoSaving, setAutoSaving] = useState(false);
@@ -70,7 +86,24 @@ export function ZoneControls({
     pumpModule?.gatewayId && pumpModule?.deviceId
       ? { gatewayId: pumpModule.gatewayId, deviceId: pumpModule.deviceId }
       : undefined;
-  const { pumpOn, valveOpen } = useLastCommandState(userId, pumpId, gatewayOpts);
+  const { pumpOn, valveOpen, valveAOpen, valveBOpen } = useLastCommandState(userId, pumpId, gatewayOpts);
+  const [selectedPumpId, setSelectedPumpId] = useState(zone.pumpModuleId ?? "");
+  const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>(zone.fieldModuleIds ?? []);
+  const [linksSaving, setLinksSaving] = useState(false);
+
+  useEffect(() => {
+    setSelectedPumpId(zone.pumpModuleId ?? "");
+    setSelectedFieldIds(zone.fieldModuleIds ?? []);
+  }, [zone.id, zone.pumpModuleId, zone.fieldModuleIds]);
+
+  const pumpOptions = useMemo(
+    () => modules.filter((m) => m.type === "pump" && m.farmId === zone.farmId),
+    [modules, zone.farmId]
+  );
+  const fieldOptions = useMemo(
+    () => modules.filter((m) => m.type === "field" && m.farmId === zone.farmId),
+    [modules, zone.farmId]
+  );
 
   return (
     <Card className="border-border">
@@ -82,6 +115,69 @@ export function ZoneControls({
           mode={zone.mode}
           onModeChange={(mode) => onZoneModeChange(zone.id, mode)}
         />
+
+        <div className="rounded-md border border-border p-3 space-y-3">
+          <p className="text-xs font-medium text-muted-foreground">Affectation des modules</p>
+          <div className="space-y-1">
+            <Label className="text-xs">Pompe de la zone</Label>
+            <select
+              value={selectedPumpId}
+              onChange={(e) => setSelectedPumpId(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Aucune pompe</option>
+              {pumpOptions.map((pump) => (
+                <option key={pump.id} value={pump.id}>
+                  {pump.name || pump.id} {pump.online ? "(en ligne)" : "(hors ligne)"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Capteurs de champ associés</Label>
+            {fieldOptions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Aucun capteur disponible dans cet espace.</p>
+            ) : (
+              <div className="grid gap-1">
+                {fieldOptions.map((field) => {
+                  const checked = selectedFieldIds.includes(field.id);
+                  return (
+                    <label
+                      key={field.id}
+                      className="flex items-center justify-between rounded border border-border px-2 py-1 text-sm"
+                    >
+                      <span>{field.name || field.id}</span>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          setSelectedFieldIds((prev) =>
+                            isChecked ? [...prev, field.id] : prev.filter((id) => id !== field.id)
+                          );
+                        }}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <Button
+            size="sm"
+            disabled={linksSaving}
+            onClick={async () => {
+              setLinksSaving(true);
+              await onUpdateZoneModules(zone.id, {
+                pumpModuleId: selectedPumpId || undefined,
+                fieldModuleIds: selectedFieldIds,
+              });
+              setLinksSaving(false);
+            }}
+          >
+            {linksSaving ? "Enregistrement…" : "Enregistrer affectation"}
+          </Button>
+        </div>
 
         {zone.mode === "manual" && (
           <>
@@ -105,6 +201,8 @@ export function ZoneControls({
               pumpOnline={pumpOnline}
               pumpOn={pumpOn}
               valveOpen={valveOpen}
+              valveAOpen={valveAOpen}
+              valveBOpen={valveBOpen}
               pendingCommand={pendingCommand}
               onSendCommand={onSendCommand}
               onClearPending={onClearPending}
@@ -192,3 +290,4 @@ export function ZoneControls({
     </Card>
   );
 }
+

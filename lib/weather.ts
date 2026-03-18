@@ -10,6 +10,19 @@ export interface CurrentWeather {
   weatherCode?: number;
 }
 
+export interface AgroHourlyPoint {
+  time: string;
+  tempC: number;
+  windKmh: number;
+  rainProbPct: number;
+}
+
+export interface AgroMeteoSnapshot {
+  hourly24h: AgroHourlyPoint[];
+  etTodayMm: number;
+  rain24hMm: number;
+}
+
 export async function getCurrentWeather(
   lat: number,
   lng: number
@@ -58,6 +71,53 @@ export async function getForecast(
 
 export function getTotalPrecipitationNext24h(forecast: ForecastDay[]): number {
   return forecast.slice(0, 1).reduce((sum, d) => sum + d.precipitationMm, 0);
+}
+
+export async function getAgroMeteoSnapshot(
+  lat: number,
+  lng: number
+): Promise<AgroMeteoSnapshot> {
+  const params = new URLSearchParams({
+    latitude: String(lat),
+    longitude: String(lng),
+    hourly: "temperature_2m,wind_speed_10m,precipitation_probability",
+    daily: "et0_fao_evapotranspiration,precipitation_sum",
+    timezone: "auto",
+    forecast_days: "2",
+  });
+  const res = await fetch(`${OPEN_METEO_BASE}/forecast?${params}`);
+  if (!res.ok) throw new Error("Météo indisponible");
+  const data = await res.json();
+
+  const now = Date.now();
+  const cutoff = now + 24 * 60 * 60 * 1000;
+
+  const hourly = (data.hourly ?? {}) as {
+    time?: string[];
+    temperature_2m?: number[];
+    wind_speed_10m?: number[];
+    precipitation_probability?: number[];
+  };
+  const hourly24h: AgroHourlyPoint[] = (hourly.time ?? [])
+    .map((time, i) => ({
+      time,
+      tempC: Number(hourly.temperature_2m?.[i] ?? 0),
+      windKmh: Number(hourly.wind_speed_10m?.[i] ?? 0),
+      rainProbPct: Number(hourly.precipitation_probability?.[i] ?? 0),
+    }))
+    .filter((p) => {
+      const ts = new Date(p.time).getTime();
+      return Number.isFinite(ts) && ts >= now && ts <= cutoff;
+    });
+
+  const daily = (data.daily ?? {}) as {
+    et0_fao_evapotranspiration?: number[];
+    precipitation_sum?: number[];
+  };
+  const etTodayMm = Number(daily.et0_fao_evapotranspiration?.[0] ?? 0);
+  const rain24hMm = Number(daily.precipitation_sum?.[0] ?? 0);
+
+  return { hourly24h, etTodayMm, rain24hMm };
 }
 
 const OPEN_METEO_ARCHIVE_BASE = "https://archive-api.open-meteo.com/v1";

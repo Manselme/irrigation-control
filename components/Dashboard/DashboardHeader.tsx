@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
 import { useModules } from "@/lib/hooks/useModules";
@@ -7,7 +8,7 @@ import { useAlertNotifications } from "@/lib/hooks/useAlerts";
 import { useAllPumpStates } from "@/lib/hooks/useAllPumpStates";
 import { useSendCommand } from "@/lib/hooks/useCommands";
 import { Button } from "@/components/ui/button";
-import { Square } from "lucide-react";
+import { Bell, Square } from "lucide-react";
 
 interface DashboardHeaderProps {
   onStopAll?: () => void;
@@ -61,6 +62,17 @@ export function DashboardHeader({ onStopAll }: DashboardHeaderProps) {
         <p className="text-muted-foreground text-sm capitalize">{dateStr}</p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
+        <Button variant="outline" size="default" asChild>
+          <Link href="/alerts" className="inline-flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            Alertes
+            {unreadCount > 0 ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+                {unreadCount}
+              </span>
+            ) : null}
+          </Link>
+        </Button>
         {unreadCount === 0 ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-sm font-medium text-emerald-700">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />

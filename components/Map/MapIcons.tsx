@@ -37,5 +37,8 @@ export function useMapIcons(zoomForDraft?: number) {
   const draftSize = zoomForDraft != null ? pointSizeFromZoom(zoomForDraft) : 12;
   const draftIcon = useCircleIcon("hsl(var(--primary))", draftSize);
   const champIcon = useCircleIcon("#22c55e", 14);
-  return { draftIcon, champIcon };
+  const pumpOffIcon = useCircleIcon("#94a3b8", 16);
+  const pumpOnIcon = useCircleIcon("#2563eb", 16);
+  const pumpSemiIcon = useCircleIcon("linear-gradient(90deg,#2563eb 50%,#94a3b8 50%)", 16);
+  return { draftIcon, champIcon, pumpOffIcon, pumpOnIcon, pumpSemiIcon };
 }

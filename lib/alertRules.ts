@@ -5,7 +5,7 @@ import type { LatestSensorSnapshot } from "./hooks/useSensorData";
 const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000;
 
 export interface AlertCheckResult {
-  type: "battery" | "pressure" | "offline";
+  type: "battery" | "pressure" | "offline" | "stress";
   message: string;
   moduleId: string;
 }
@@ -43,12 +43,37 @@ export function checkModuleAlerts(
   if (
     module.type === "pump" &&
     module.pressure != null &&
-    config.pressureDropThreshold != null &&
-    module.pressure < config.pressureDropThreshold
+    module.pressure < (config.pressureDropThreshold ?? 1)
   ) {
     return {
       type: "pressure",
-      message: `Pression basse sur la pompe ${module.id} (${module.pressure} bar, seuil ${config.pressureDropThreshold}).`,
+      message: `Pression basse sur la pompe ${module.id} (${module.pressure} bar, seuil ${config.pressureDropThreshold ?? 1}).`,
+      moduleId: module.id,
+    };
+  }
+
+  if (module.type === "pump" && module.pressure != null && module.pressure <= 0) {
+    const valveOn =
+      module.valves?.A?.status === "ON" ||
+      module.valves?.B?.status === "ON";
+    if (valveOn) {
+      return {
+        type: "pressure",
+        message: `Anomalie: pompe ${module.id} activee avec pression nulle (verifier aspiration/pompe).`,
+        moduleId: module.id,
+      };
+    }
+  }
+
+  const tension = latestSensor?.tension_cb;
+  if (
+    module.type === "field" &&
+    tension != null &&
+    tension > (config.stressTensionThreshold ?? 60)
+  ) {
+    return {
+      type: "stress",
+      message: `Stress hydrique sur ${module.id}: tension ${Math.round(tension)} cb (seuil ${config.stressTensionThreshold ?? 60}).`,
       moduleId: module.id,
     };
   }

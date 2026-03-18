@@ -7,6 +7,8 @@ import { getFirebaseDb } from "@/lib/firebase";
 export interface PumpState {
   pumpOn: boolean;
   valveOpen: boolean;
+  valveAOpen: boolean;
+  valveBOpen: boolean;
 }
 
 export interface PumpModuleRef {
@@ -39,8 +41,16 @@ export function useAllPumpStates(
           ? {
               pumpOn: (snap.val() as { pumpOn?: boolean })?.pumpOn ?? false,
               valveOpen: (snap.val() as { valveOpen?: boolean })?.valveOpen ?? false,
+              valveAOpen:
+                (snap.val() as { valveAOpen?: boolean })?.valveAOpen ??
+                (snap.val() as { valveOpen?: boolean })?.valveOpen ??
+                false,
+              valveBOpen:
+                (snap.val() as { valveBOpen?: boolean })?.valveBOpen ??
+                (snap.val() as { valveOpen?: boolean })?.valveOpen ??
+                false,
             }
-          : { pumpOn: false, valveOpen: false };
+          : { pumpOn: false, valveOpen: false, valveAOpen: false, valveBOpen: false };
         setStates((prev) => ({ ...prev, [moduleId]: state }));
       });
       unsubs.push(unsub);

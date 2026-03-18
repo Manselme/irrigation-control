@@ -3,30 +3,33 @@
 import type { AlertNotification } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bell, Battery, Gauge, WifiOff } from "lucide-react";
+import { Bell, Battery, Gauge, WifiOff, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AlertListProps {
   notifications: AlertNotification[];
   onMarkAsRead: (id: string) => void;
+  onMarkAllAsRead?: () => void;
 }
 
 const typeIcons = {
   battery: Battery,
   pressure: Gauge,
   offline: WifiOff,
+  stress: AlertTriangle,
 };
 
 export function AlertList({
   notifications,
   onMarkAsRead,
+  onMarkAllAsRead,
 }: AlertListProps) {
   const unread = notifications.filter((n) => !n.read);
   const read = notifications.filter((n) => n.read);
 
   return (
     <Card className="border-border">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base flex items-center gap-2">
           <Bell className="h-4 w-4" />
           Notifications
@@ -36,6 +39,11 @@ export function AlertList({
             </span>
           )}
         </CardTitle>
+        {unread.length > 1 && onMarkAllAsRead ? (
+          <Button variant="ghost" size="sm" onClick={onMarkAllAsRead}>
+            Tout marquer lu
+          </Button>
+        ) : null}
       </CardHeader>
       <CardContent>
         {notifications.length === 0 ? (

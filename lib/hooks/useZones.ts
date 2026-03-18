@@ -5,17 +5,62 @@ import { ref, get, set, push, onValue } from "firebase/database";
 import { getFirebaseDb } from "@/lib/firebase";
 import type { Zone } from "@/types";
 
+function normalizePolygon(raw: unknown): Zone["polygon"] {
+  if (
+    typeof raw === "object" &&
+    raw != null &&
+    (raw as { type?: unknown }).type === "Polygon" &&
+    Array.isArray((raw as { coordinates?: unknown }).coordinates)
+  ) {
+    return raw as Zone["polygon"];
+  }
+  return { type: "Polygon", coordinates: [] };
+}
+
 function parseZone(id: string, data: Record<string, unknown>): Zone {
+  const polygon = normalizePolygon(data.polygon);
+  const sectorsRaw = Array.isArray(data.sectors) ? data.sectors : null;
+  const sectors =
+    sectorsRaw?.map((sector, index) => {
+      const s = sector as Record<string, unknown>;
+      return {
+        id: typeof s.id === "string" ? s.id : `sector-${index + 1}`,
+        name: typeof s.name === "string" ? s.name : `Secteur ${index + 1}`,
+        polygon: normalizePolygon(s.polygon),
+        valveModuleIds: Array.isArray(s.valveModuleIds)
+          ? (s.valveModuleIds as string[])
+          : [],
+        valveSlot:
+          s.valveSlot === "A" || s.valveSlot === "B"
+            ? (s.valveSlot as "A" | "B")
+            : undefined,
+      };
+    }) ?? [
+      {
+        id: "sector-main",
+        name: "Secteur principal",
+        polygon,
+        valveModuleIds: [],
+      },
+    ];
+  const pumpModuleId = data.pumpModuleId as string | undefined;
+  const pumpModuleIds = Array.isArray(data.pumpModuleIds)
+    ? (data.pumpModuleIds as string[])
+    : pumpModuleId
+      ? [pumpModuleId]
+      : [];
   return {
     id,
     farmId: (data.farmId as string) ?? "",
     name: (data.name as string) ?? "",
-    polygon: (data.polygon as Zone["polygon"]) ?? {
-      type: "Polygon",
-      coordinates: [],
-    },
+    polygon,
+    sectors,
     mode: (data.mode as Zone["mode"]) ?? "manual",
-    pumpModuleId: data.pumpModuleId as string | undefined,
+    pumpModuleId,
+    pumpModuleIds,
+    valveModuleIds: Array.isArray(data.valveModuleIds)
+      ? (data.valveModuleIds as string[])
+      : [],
     fieldModuleIds: Array.isArray(data.fieldModuleIds) ? data.fieldModuleIds : [],
     autoRules: data.autoRules as Zone["autoRules"],
   };
@@ -72,7 +117,15 @@ export function useZones(userId: string | undefined, farmId: string | null) {
       updates: Partial<
         Pick<
           Zone,
-          "name" | "polygon" | "mode" | "pumpModuleId" | "fieldModuleIds" | "autoRules"
+          | "name"
+          | "polygon"
+          | "sectors"
+          | "mode"
+          | "pumpModuleId"
+          | "pumpModuleIds"
+          | "valveModuleIds"
+          | "fieldModuleIds"
+          | "autoRules"
         >
       >
     ): Promise<void> => {
@@ -81,7 +134,17 @@ export function useZones(userId: string | undefined, farmId: string | null) {
       const snap = await get(zoneRef);
       if (!snap.exists()) return;
       const current = snap.val();
-      await set(zoneRef, { ...current, ...updates });
+      const merged = { ...current, ...updates } as Record<string, unknown>;
+      const nextPumpModuleIds = Array.isArray(merged.pumpModuleIds)
+        ? (merged.pumpModuleIds as string[])
+        : [];
+      if (merged.pumpModuleId == null && nextPumpModuleIds.length > 0) {
+        merged.pumpModuleId = nextPumpModuleIds[0];
+      }
+      if (typeof merged.pumpModuleId === "string" && nextPumpModuleIds.length === 0) {
+        merged.pumpModuleIds = [merged.pumpModuleId];
+      }
+      await set(zoneRef, merged);
     },
     [userId]
   );

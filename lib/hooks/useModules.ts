@@ -50,7 +50,16 @@ function parseModule(
   data: Record<string, unknown>,
   offlineThresholdMs: number
 ): Module {
+  type ValveConfig = { name?: string; zoneId?: string; status?: "ON" | "OFF" };
   const lastSeen = (data.lastSeen as number) ?? 0;
+  const hydraulicSettingsRaw =
+    typeof data.hydraulicSettings === "object" && data.hydraulicSettings != null
+      ? (data.hydraulicSettings as Record<string, unknown>)
+      : null;
+  const valvesRaw =
+    typeof data.valves === "object" && data.valves != null
+      ? (data.valves as Record<string, unknown>)
+      : null;
   return {
     id,
     type: (data.type as ModuleType) ?? "field",
@@ -65,6 +74,34 @@ function parseModule(
     factoryId: data.factoryId as string | undefined,
     gatewayId: data.gatewayId as string | undefined,
     deviceId: data.deviceId as string | undefined,
+    hydraulicSettings: hydraulicSettingsRaw
+      ? {
+          pipeDiameterMm:
+            typeof hydraulicSettingsRaw.pipeDiameterMm === "number"
+              ? hydraulicSettingsRaw.pipeDiameterMm
+              : undefined,
+          referencePressureBar:
+            typeof hydraulicSettingsRaw.referencePressureBar === "number"
+              ? hydraulicSettingsRaw.referencePressureBar
+              : undefined,
+          updatedAt:
+            typeof hydraulicSettingsRaw.updatedAt === "number"
+              ? hydraulicSettingsRaw.updatedAt
+              : undefined,
+        }
+      : undefined,
+    valves: valvesRaw
+      ? {
+          A:
+            typeof valvesRaw.A === "object" && valvesRaw.A != null
+              ? (valvesRaw.A as ValveConfig)
+              : undefined,
+          B:
+            typeof valvesRaw.B === "object" && valvesRaw.B != null
+              ? (valvesRaw.B as ValveConfig)
+              : undefined,
+        }
+      : undefined,
   };
 }
 
@@ -161,9 +198,9 @@ export function useModules(
           const tsFromStatus =
             parseTimestampMs(status?.lastSeenTs) ??
             parseTimestampMs(status?.lastSeen);
-          // Fallback important: même sans timestamp absolu fiable, une MAJ de ce noeud
-          // signifie que le module a parlé récemment.
-          const effectiveTs = tsFromStatus ?? Date.now();
+          // Ne jamais forcer Date.now() ici: sinon un reload peut marquer
+          // à tort un module hors tension comme "en ligne" pendant quelques secondes.
+          const effectiveTs = tsFromStatus ?? 0;
           setGatewayLastSeenByModuleId((prev) => {
             if (prev[m.id] === effectiveTs) return prev;
             return { ...prev, [m.id]: effectiveTs };
@@ -254,7 +291,17 @@ export function useModules(
       updates: Partial<
         Pick<
           Module,
-          "battery" | "online" | "pressure" | "position" | "name" | "lastSeen" | "factoryId" | "gatewayId" | "deviceId"
+          | "battery"
+          | "online"
+          | "pressure"
+          | "position"
+          | "name"
+          | "lastSeen"
+          | "factoryId"
+          | "gatewayId"
+          | "deviceId"
+          | "hydraulicSettings"
+          | "valves"
         >
       >
     ) => {
