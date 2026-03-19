@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { ref, onValue, off, get } from "firebase/database";
 import { getFirebaseDb } from "@/lib/firebase";
+import { buildGatewayDeviceIds, buildGatewayPumpActivityPaths } from "@/lib/gatewayDevicePaths";
 
 export interface PumpActivityDay {
   date: string;
@@ -48,54 +49,63 @@ export function usePumpActivity(
   const [daysList, setDaysList] = useState<PumpActivityDay[]>([]);
   const rangeMs = days * 24 * 60 * 60 * 1000;
 
-  const path =
-    gatewayOpts?.gatewayId && gatewayOpts?.deviceId
-      ? `gateways/${gatewayOpts.gatewayId}/pumpActivity/${gatewayOpts.deviceId}`
+  const paths =
+    gatewayOpts?.gatewayId
+      ? buildGatewayPumpActivityPaths(
+          gatewayOpts.gatewayId,
+          buildGatewayDeviceIds({ deviceId: gatewayOpts.deviceId, moduleId })
+        )
       : userId && moduleId
-        ? `users/${userId}/pumpActivity/${moduleId}`
-        : "";
+        ? [`users/${userId}/pumpActivity/${moduleId}`]
+        : [];
 
   const fetchActivity = useCallback(() => {
-    if (!path) return;
-    const activityRef = ref(getFirebaseDb(), path);
+    if (paths.length === 0) return;
     const cutoff = toLocalYYYYMMDD(new Date(Date.now() - rangeMs));
-    get(activityRef).then((snap) => {
-      if (!snap.exists()) {
+    const reads = paths.map((path) => get(ref(getFirebaseDb(), path)));
+    Promise.all(reads).then((snaps) => {
+      const firstExisting = snaps.find((s) => s.exists());
+      if (!firstExisting) {
         setDaysList([]);
         return;
       }
-      const data = snap.val() as Record<string, unknown>;
+      const data = firstExisting.val() as Record<string, unknown>;
       setDaysList(parsePumpActivityData(data, cutoff));
     });
-  }, [path, rangeMs]);
+  }, [paths.join("|"), rangeMs]);
 
   useEffect(() => {
-    if (!path) {
+    if (paths.length === 0) {
       setDaysList([]);
       return;
     }
-    const activityRef = ref(getFirebaseDb(), path);
     const cutoff = toLocalYYYYMMDD(new Date(Date.now() - rangeMs));
+    const snapshotsByPath: Record<string, Record<string, unknown> | null> = {};
 
-    const handleSnapshot = (snap: { exists: () => boolean; val: () => Record<string, unknown> }) => {
-      if (!snap.exists()) {
+    const handleResolvedSnapshots = () => {
+      const first = paths.map((p) => snapshotsByPath[p]).find((v) => v != null) ?? null;
+      if (!first) {
         setDaysList([]);
         return;
       }
-      const data = snap.val();
-      setDaysList(parsePumpActivityData(data, cutoff));
+      setDaysList(parsePumpActivityData(first, cutoff));
     };
 
     fetchActivity();
-    const unsubscribe = onValue(activityRef, handleSnapshot);
+    const unsubs = paths.map((path) =>
+      onValue(ref(getFirebaseDb(), path), (snap) => {
+        snapshotsByPath[path] = snap.exists() ? (snap.val() as Record<string, unknown>) : null;
+        handleResolvedSnapshots();
+      })
+    );
     const pollId = setInterval(fetchActivity, POLL_INTERVAL_MS);
 
     return () => {
-      unsubscribe();
-      off(activityRef);
+      unsubs.forEach((u) => u());
+      paths.forEach((path) => off(ref(getFirebaseDb(), path)));
       clearInterval(pollId);
     };
-  }, [path, rangeMs, fetchActivity]);
+  }, [paths.join("|"), rangeMs, fetchActivity]);
 
   return [daysList, fetchActivity];
 }

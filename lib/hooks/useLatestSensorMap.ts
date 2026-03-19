@@ -5,6 +5,7 @@ import { ref, onValue } from "firebase/database";
 import { getFirebaseDb } from "@/lib/firebase";
 import type { LatestSensorSnapshot } from "./useSensorData";
 import type { Module } from "@/types";
+import { buildGatewayDeviceIds, buildGatewaySensorPaths } from "@/lib/gatewayDevicePaths";
 
 export function useLatestSensorMap(
   userId: string | undefined,
@@ -18,36 +19,55 @@ export function useLatestSensorMap(
       return;
     }
     const unsubscribes: (() => void)[] = [];
-    const next: Record<string, LatestSensorSnapshot | null> = {};
+    const snapshotsByModule: Record<string, Record<string, Record<string, unknown> | null>> = {};
 
     modules.forEach((module) => {
-      const path =
-        module.gatewayId && module.deviceId
-          ? `gateways/${module.gatewayId}/sensors/${module.deviceId}`
-          : `users/${userId}/sensorData/${module.id}/latest`;
-      const sensorRef = ref(getFirebaseDb(), path);
+      const toSnapshot = (v: Record<string, unknown> | null): LatestSensorSnapshot | null => {
+        if (!v) return null;
+        return {
+          timestamp: (v?.timestamp as number) ?? 0,
+          humidity: v?.humidity as number | undefined,
+          ph: v?.ph as number | undefined,
+          battery: v?.battery as number | undefined,
+          tension_cb: v?.tension_cb as number | undefined,
+          humidity_10cm: v?.humidity_10cm as number | undefined,
+          humidity_30cm: v?.humidity_30cm as number | undefined,
+        };
+      };
+
+      if (module.gatewayId) {
+        const ids = buildGatewayDeviceIds({
+          moduleType: module.type,
+          deviceId: module.deviceId,
+          moduleId: module.id,
+          factoryId: module.factoryId,
+        });
+        const paths = buildGatewaySensorPaths(module.gatewayId, ids);
+        snapshotsByModule[module.id] = {};
+        paths.forEach((path) => {
+          const sensorRef = ref(getFirebaseDb(), path);
+          const unsub = onValue(sensorRef, (snap) => {
+            const cache = snapshotsByModule[module.id] ?? {};
+            cache[path] = snap.exists() ? (snap.val() as Record<string, unknown>) : null;
+            snapshotsByModule[module.id] = cache;
+            const selected = paths.map((p) => cache[p]).find((v) => v != null) ?? null;
+            setMap((prev) => ({ ...prev, [module.id]: toSnapshot(selected) }));
+          });
+          unsubscribes.push(() => unsub());
+        });
+        return;
+      }
+
+      const sensorRef = ref(getFirebaseDb(), `users/${userId}/sensorData/${module.id}/latest`);
       const unsub = onValue(sensorRef, (snap) => {
-        if (!snap.exists()) {
-          next[module.id] = null;
-        } else {
-          const v = snap.val();
-          next[module.id] = {
-            timestamp: v?.timestamp ?? 0,
-            humidity: v?.humidity,
-            ph: v?.ph,
-            battery: v?.battery,
-            tension_cb: v?.tension_cb,
-            humidity_10cm: v?.humidity_10cm,
-            humidity_30cm: v?.humidity_30cm,
-          };
-        }
-        setMap((prev) => ({ ...prev, ...next }));
+        const raw = snap.exists() ? (snap.val() as Record<string, unknown>) : null;
+        setMap((prev) => ({ ...prev, [module.id]: toSnapshot(raw) }));
       });
       unsubscribes.push(() => unsub());
     });
 
     return () => unsubscribes.forEach((u) => u());
-  }, [userId, modules.map((m) => `${m.id}:${m.gatewayId ?? ""}:${m.deviceId ?? ""}`).join(",")]);
+  }, [userId, modules.map((m) => `${m.id}:${m.type}:${m.gatewayId ?? ""}:${m.deviceId ?? ""}:${m.factoryId ?? ""}`).join(",")]);
 
   return map;
 }

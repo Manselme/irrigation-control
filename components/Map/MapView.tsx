@@ -1,10 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
+import type { DivIcon } from "leaflet";
 import type { Zone } from "@/types";
 import type { Module } from "@/types";
-import { useMapIcons } from "./MapIcons";
+import { buildPumpSplitMarkerHtml, useMapIcons } from "./MapIcons";
+
+const PUMP_MARKER_SIZE = 22;
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((m) => m.MapContainer),
@@ -86,6 +89,7 @@ interface MapViewProps {
     active?: boolean;
     label?: string;
   }>;
+  pumpValveFillByModuleId?: Record<string, { A?: string; B?: string }>;
 }
 
 function latLngsFromPolygon(
@@ -115,8 +119,39 @@ export function MapView({
   enablePopups = true,
   pumpStatesByModuleId = {},
   flowLinks = [],
+  pumpValveFillByModuleId,
 }: MapViewProps) {
   const { champIcon, pumpOffIcon, pumpOnIcon, pumpSemiIcon } = useMapIcons();
+  const [splitPumpIcons, setSplitPumpIcons] = useState<Record<string, DivIcon>>({});
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (pumpValveFillByModuleId === undefined) {
+      setSplitPumpIcons({});
+      return;
+    }
+    const L = require("leaflet") as typeof import("leaflet");
+    const next: Record<string, DivIcon> = {};
+    for (const m of pumpModules) {
+      if (m.position?.lat == null || m.position?.lng == null) continue;
+      const fills = pumpValveFillByModuleId[m.id];
+      const st = pumpStatesByModuleId[m.id];
+      const colorA = fills?.A ?? "#94a3b8";
+      const colorB = fills?.B ?? "#94a3b8";
+      next[m.id] = L.divIcon({
+        className: "custom-marker pump-split-marker",
+        html: buildPumpSplitMarkerHtml({
+          colorA,
+          colorB,
+          size: PUMP_MARKER_SIZE,
+          pumpOn: st?.pumpOn ?? false,
+        }),
+        iconSize: [PUMP_MARKER_SIZE, PUMP_MARKER_SIZE],
+        iconAnchor: [PUMP_MARKER_SIZE / 2, PUMP_MARKER_SIZE / 2],
+      });
+    }
+    setSplitPumpIcons(next);
+  }, [pumpModules, pumpValveFillByModuleId, pumpStatesByModuleId]);
 
   return (
     <div className={className}>
@@ -277,12 +312,14 @@ export function MapView({
             const a = st?.valveAOpen ?? st?.valveOpen ?? false;
             const b = st?.valveBOpen ?? st?.valveOpen ?? false;
             const activeCount = Number(!!a) + Number(!!b);
-            const icon =
+            const splitIcon = pumpValveFillByModuleId != null ? splitPumpIcons[m.id] : undefined;
+            const legacyIcon =
               st?.pumpOn && activeCount === 2
                 ? pumpOnIcon
                 : st?.pumpOn && activeCount === 1
                   ? pumpSemiIcon
                   : pumpOffIcon;
+            const icon = splitIcon ?? legacyIcon;
             return (
               <Marker
                 key={`pump-${m.id}`}

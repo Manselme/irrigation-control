@@ -1,5 +1,7 @@
 "use client";
 
+import { initialPumpGatewayStatus } from "@/lib/simulator/pumpCommandHelpers";
+
 export interface SimulatorFixtureIds {
   farmId: string;
   gatewayId: string;
@@ -60,6 +62,19 @@ export function createBootstrapFixture(seed: number = Date.now()): SimulatorFixt
   const [zoneNorth, zoneCenter, zoneSouth] = ids.zoneIds;
   const now = Date.now();
 
+  const polyNorth = {
+    type: "Polygon" as const,
+    coordinates: [[[1.898, 46.601], [1.9, 46.601], [1.9, 46.603], [1.898, 46.603], [1.898, 46.601]]],
+  };
+  const polyCenter = {
+    type: "Polygon" as const,
+    coordinates: [[[1.901, 46.601], [1.903, 46.601], [1.903, 46.603], [1.901, 46.603], [1.901, 46.601]]],
+  };
+  const polySouth = {
+    type: "Polygon" as const,
+    coordinates: [[[1.904, 46.599], [1.906, 46.599], [1.906, 46.601], [1.904, 46.601], [1.904, 46.599]]],
+  };
+
   const usersData: Record<string, unknown> = {
     farms: { [ids.farmId]: { name: "Espace de simulation" } },
     linkedGateways: { [ids.gatewayId]: { farmId: ids.farmId, name: "Passerelle principale" } },
@@ -83,19 +98,48 @@ export function createBootstrapFixture(seed: number = Date.now()): SimulatorFixt
     },
     zones: {
       [zoneNorth]: {
-        farmId: ids.farmId, name: "Zone Nord", mode: "manual", pumpModuleId: ids.pumpDeviceId,
+        farmId: ids.farmId,
+        name: "Zone Nord",
+        mode: "manual",
+        pumpModuleId: ids.pumpDeviceId,
+        pumpModuleIds: [ids.pumpDeviceId],
         fieldModuleIds: [fieldA],
-        polygon: { type: "Polygon", coordinates: [[[1.898, 46.601], [1.9, 46.601], [1.9, 46.603], [1.898, 46.603], [1.898, 46.601]]] },
+        polygon: polyNorth,
+        sectors: [
+          {
+            id: "sector-main",
+            name: "Secteur principal",
+            polygon: polyNorth,
+            valveModuleIds: [],
+            valveSlot: "A",
+          },
+        ],
       },
       [zoneCenter]: {
-        farmId: ids.farmId, name: "Zone Centre", mode: "manual", pumpModuleId: ids.pumpDeviceId,
+        farmId: ids.farmId,
+        name: "Zone Centre",
+        mode: "manual",
+        pumpModuleId: ids.pumpDeviceId,
+        pumpModuleIds: [ids.pumpDeviceId],
         fieldModuleIds: [fieldB],
-        polygon: { type: "Polygon", coordinates: [[[1.901, 46.601], [1.903, 46.601], [1.903, 46.603], [1.901, 46.603], [1.901, 46.601]]] },
+        polygon: polyCenter,
+        sectors: [
+          {
+            id: "sector-main",
+            name: "Secteur principal",
+            polygon: polyCenter,
+            valveModuleIds: [],
+            valveSlot: "B",
+          },
+        ],
       },
+      /** Capteur seul : pas de vanne (1 pompe = max 2 zones identifiées A/B). */
       [zoneSouth]: {
-        farmId: ids.farmId, name: "Zone Sud", mode: "manual", pumpModuleId: ids.pumpDeviceId,
+        farmId: ids.farmId,
+        name: "Zone Sud",
+        mode: "manual",
         fieldModuleIds: [fieldC],
-        polygon: { type: "Polygon", coordinates: [[[1.904, 46.599], [1.906, 46.599], [1.906, 46.601], [1.904, 46.601], [1.904, 46.599]]] },
+        polygon: polySouth,
       },
     },
     alerts: { config: { batteryThreshold: 20, stressTensionThreshold: 60, offlineMinutesThreshold: 5 }, notifications: {} },
@@ -114,7 +158,7 @@ export function createBootstrapFixture(seed: number = Date.now()): SimulatorFixt
         [fieldA]: { lastSeen: now, battery: 88 },
         [fieldB]: { lastSeen: now, battery: 82 },
         [fieldC]: { lastSeen: now, battery: 79 },
-        [ids.pumpDeviceId]: { lastSeen: now, pumpOn: false, valveOpen: false, pressure: 2.4 },
+        [ids.pumpDeviceId]: initialPumpGatewayStatus({ pressure: 2.4 }),
       },
       sensors: { [fieldA]: sensorA, [fieldB]: sensorB, [fieldC]: sensorC },
       sensorsHistory: {

@@ -1,6 +1,10 @@
 # Repo imbriqué / ancien projet
 Projet_Agri_Site/
 
+# Données locales / exemples (ne pas versionner)
+BDD_log/
+Code exemple Lora/
+
 # Dependencies
 node_modules/
 .pnp

@@ -5,6 +5,24 @@ import { ref, get, set, push, onValue } from "firebase/database";
 import { getFirebaseDb } from "@/lib/firebase";
 import type { Zone } from "@/types";
 
+/** Supprime les clés `undefined` (Firebase RTDB les refuse). */
+function stripUndefinedDeep(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stripUndefinedDeep(item))
+      .filter((item) => item !== undefined);
+  }
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v === undefined) continue;
+    const next = stripUndefinedDeep(v);
+    if (next !== undefined) out[k] = next;
+  }
+  return out;
+}
+
 function normalizePolygon(raw: unknown): Zone["polygon"] {
   if (
     typeof raw === "object" &&
@@ -138,13 +156,26 @@ export function useZones(userId: string | undefined, farmId: string | null) {
       const nextPumpModuleIds = Array.isArray(merged.pumpModuleIds)
         ? (merged.pumpModuleIds as string[])
         : [];
-      if (merged.pumpModuleId == null && nextPumpModuleIds.length > 0) {
-        merged.pumpModuleId = nextPumpModuleIds[0];
+
+      const userClearedPump =
+        Object.prototype.hasOwnProperty.call(updates, "pumpModuleIds") &&
+        Array.isArray(updates.pumpModuleIds) &&
+        updates.pumpModuleIds.length === 0;
+
+      if (userClearedPump) {
+        merged.pumpModuleId = null;
+        merged.pumpModuleIds = [];
+      } else {
+        if (merged.pumpModuleId == null && nextPumpModuleIds.length > 0) {
+          merged.pumpModuleId = nextPumpModuleIds[0];
+        }
+        if (typeof merged.pumpModuleId === "string" && nextPumpModuleIds.length === 0) {
+          merged.pumpModuleIds = [merged.pumpModuleId];
+        }
       }
-      if (typeof merged.pumpModuleId === "string" && nextPumpModuleIds.length === 0) {
-        merged.pumpModuleIds = [merged.pumpModuleId];
-      }
-      await set(zoneRef, merged);
+
+      const cleaned = stripUndefinedDeep(merged) as Record<string, unknown>;
+      await set(zoneRef, cleaned);
     },
     [userId]
   );

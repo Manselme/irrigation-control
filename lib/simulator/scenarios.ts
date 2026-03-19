@@ -7,6 +7,7 @@ import {
   type SimulatorFixtureBundle,
   type SimulatorFixtureIds,
 } from "@/lib/simulator/fixtures";
+import { initialPumpGatewayStatus } from "@/lib/simulator/pumpCommandHelpers";
 
 export type SimulatorScenarioId =
   | "normal_operation"
@@ -65,12 +66,11 @@ async function runNormalOperation(ctx: ScenarioContext): Promise<ScenarioResult>
     await adapter.writeGateway(fixtureIds.gatewayId, `sensors/${fieldId}`, point);
     await adapter.writeGateway(fixtureIds.gatewayId, `sensorsHistory/${fieldId}/${now}`, point);
   }
-  await adapter.updateGateway(fixtureIds.gatewayId, `status/${fixtureIds.pumpDeviceId}`, {
-    lastSeen: now,
-    pumpOn: false,
-    valveOpen: false,
-    pressure: 2.3,
-  });
+  await adapter.updateGateway(
+    fixtureIds.gatewayId,
+    `status/${fixtureIds.pumpDeviceId}`,
+    initialPumpGatewayStatus({ pressure: 2.3, lastSeen: now, lastSeenTs: now })
+  );
   return {
     id: "normal_operation",
     title: "Normal operation",
@@ -110,9 +110,7 @@ async function runGatewayOutage(ctx: ScenarioContext): Promise<ScenarioResult> {
     await adapter.updateGateway(fixtureIds.gatewayId, `status/${fieldId}`, { lastSeen: stale });
   }
   await adapter.updateGateway(fixtureIds.gatewayId, `status/${fixtureIds.pumpDeviceId}`, {
-    lastSeen: stale,
-    pumpOn: false,
-    valveOpen: false,
+    ...initialPumpGatewayStatus({ lastSeen: stale, lastSeenTs: stale }),
   });
   return {
     id: "gateway_outage",
@@ -155,8 +153,10 @@ async function runQuota90Alert(ctx: ScenarioContext): Promise<ScenarioResult> {
     );
   }
   await adapter.updateGateway(fixtureIds.gatewayId, `status/${fixtureIds.pumpDeviceId}`, {
-    lastSeen: now,
+    ...initialPumpGatewayStatus({ lastSeen: now, lastSeenTs: now }),
     pumpOn: true,
+    valveAOpen: true,
+    valveBOpen: false,
     valveOpen: true,
     pressure: 2.7,
   });
@@ -209,10 +209,13 @@ async function runCommandTimeoutThenAck(ctx: ScenarioContext): Promise<ScenarioR
     status: "confirmed",
     confirmedAt: Date.now(),
   });
+  const nowAck = Date.now();
   await adapter.updateGateway(fixtureIds.gatewayId, `status/${fixtureIds.pumpDeviceId}`, {
+    ...initialPumpGatewayStatus({ lastSeen: nowAck, lastSeenTs: nowAck }),
     pumpOn: true,
+    valveAOpen: true,
+    valveBOpen: false,
     valveOpen: true,
-    lastSeen: Date.now(),
   });
   return {
     id: "command_timeout_then_ack",

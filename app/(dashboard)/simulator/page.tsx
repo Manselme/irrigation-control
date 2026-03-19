@@ -22,6 +22,10 @@ import {
 } from "@/lib/simulator/scenarios";
 import { runScenarioAssertions, type ScenarioAssertionReport } from "@/lib/simulator/assertions";
 import { createSensorPoint, type SimulatorFixtureIds } from "@/lib/simulator/fixtures";
+import {
+  applyPumpCommandToGatewayStatus,
+  initialPumpGatewayStatus,
+} from "@/lib/simulator/pumpCommandHelpers";
 
 export default function SimulatorPage() {
   const { user } = useAuth();
@@ -33,6 +37,12 @@ export default function SimulatorPage() {
   const [fixtureIds, setFixtureIds] = useState<SimulatorFixtureIds | null>(null);
   const [runningScenarioId, setRunningScenarioId] = useState<SimulatorScenarioId | null>(null);
   const [reports, setReports] = useState<ScenarioAssertionReport[]>([]);
+  const [pumpLive, setPumpLive] = useState<{
+    pumpOn: boolean;
+    valveOpen: boolean;
+    valveAOpen: boolean;
+    valveBOpen: boolean;
+  } | null>(null);
   const ackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastHandledCmdIdRef = useRef<string>("");
 
@@ -43,6 +53,37 @@ export default function SimulatorPage() {
   }, [store.selectedGatewayId, gateways]);
 
   useEffect(() => {
+    if (!store.adapter || !store.selectedGatewayId || !fixtureIds?.pumpDeviceId) {
+      setPumpLive(null);
+      return;
+    }
+    const path = store.adapter.resolveGatewayPath(
+      store.selectedGatewayId,
+      `status/${fixtureIds.pumpDeviceId}`
+    );
+    const statusRef = ref(getFirebaseDb(), path);
+    const unsub = onValue(statusRef, (snap) => {
+      if (!snap.exists()) {
+        setPumpLive(null);
+        return;
+      }
+      const v = snap.val() as Record<string, unknown>;
+      const legacyOpen = typeof v.valveOpen === "boolean" ? v.valveOpen : false;
+      const valveAOpen =
+        typeof v.valveAOpen === "boolean" ? v.valveAOpen : legacyOpen;
+      const valveBOpen =
+        typeof v.valveBOpen === "boolean" ? v.valveBOpen : legacyOpen;
+      setPumpLive({
+        pumpOn: Boolean(v.pumpOn),
+        valveOpen: valveAOpen || valveBOpen,
+        valveAOpen,
+        valveBOpen,
+      });
+    });
+    return () => unsub();
+  }, [store.adapter, store.selectedGatewayId, fixtureIds?.pumpDeviceId]);
+
+  useEffect(() => {
     if (!store.adapter || !store.selectedGatewayId) return;
     const cmdRef = ref(
       getFirebaseDb(),
@@ -50,15 +91,23 @@ export default function SimulatorPage() {
     );
     const unsubscribe = onValue(cmdRef, async (snap) => {
       if (!snap.exists()) return;
-      const cmd = snap.val() as { id?: string; status?: string; dest?: string; type?: string };
+      const cmd = snap.val() as {
+        id?: string;
+        status?: string;
+        dest?: string;
+        type?: string;
+        valveSlot?: string;
+      };
       if (cmd.status !== "pending" || !cmd.dest || !cmd.type) return;
       if (cmd.id && cmd.id === lastHandledCmdIdRef.current) return;
       if (!cmd.dest.startsWith("POMPE-")) return;
       lastHandledCmdIdRef.current = cmd.id ?? "";
+      const vanne =
+        cmd.valveSlot === "A" || cmd.valveSlot === "B" ? ` (vanne ${cmd.valveSlot})` : "";
       store.addLog({
         at: Date.now(),
         level: "info",
-        message: `Commande détectée: ${cmd.type} sur ${cmd.dest}.`,
+        message: `Commande détectée: ${cmd.type}${vanne} sur ${cmd.dest}.`,
       });
       if (store.forceAckTimeout) {
         store.addLog({
@@ -75,21 +124,10 @@ export default function SimulatorPage() {
           store.selectedGatewayId,
           `status/${cmd.dest}`
         )) ?? {};
-        const currentPump = (current.pumpOn as boolean | undefined) ?? false;
-        const currentValve = (current.valveOpen as boolean | undefined) ?? false;
-        const next = {
-          ...current,
-          pumpOn:
-            cmd.type === "PUMP_ON" ? true : cmd.type === "PUMP_OFF" ? false : currentPump,
-          valveOpen:
-            cmd.type === "VALVE_OPEN"
-              ? true
-              : cmd.type === "VALVE_CLOSE"
-                ? false
-                : currentValve,
-          lastSeen: Date.now(),
-          lastSeenTs: Date.now(),
-        };
+        const next = applyPumpCommandToGatewayStatus(current, {
+          type: cmd.type!,
+          valveSlot: cmd.valveSlot,
+        });
         await store.adapter.writeGateway(store.selectedGatewayId, `status/${cmd.dest}`, next);
         await store.adapter.writeGateway(store.selectedGatewayId, "commands/current", {
           ...cmd,
@@ -199,6 +237,36 @@ export default function SimulatorPage() {
     setFixtureIds(null);
     setReports([]);
     store.resetWriteCount();
+  };
+
+  /** Écrit un état pompe/vannes A-B cohérent dans la sandbox (démo hors commandes). */
+  const applyPumpManualPreset = async (preset: "stop" | "a" | "b" | "ab") => {
+    if (!store.adapter || !fixtureIds) return;
+    const now = Date.now();
+    const base = { ...initialPumpGatewayStatus({ lastSeen: now, lastSeenTs: now }), pressure: 2.5 };
+    let body: Record<string, unknown>;
+    switch (preset) {
+      case "stop":
+        body = { ...base, pumpOn: false, valveAOpen: false, valveBOpen: false, valveOpen: false };
+        break;
+      case "a":
+        body = { ...base, pumpOn: true, valveAOpen: true, valveBOpen: false, valveOpen: true };
+        break;
+      case "b":
+        body = { ...base, pumpOn: true, valveAOpen: false, valveBOpen: true, valveOpen: true };
+        break;
+      case "ab":
+        body = { ...base, pumpOn: true, valveAOpen: true, valveBOpen: true, valveOpen: true };
+        break;
+      default:
+        return;
+    }
+    await store.adapter.updateGateway(fixtureIds.gatewayId, `status/${fixtureIds.pumpDeviceId}`, body);
+    store.addLog({
+      at: Date.now(),
+      level: "info",
+      message: `État pompe manuel (${preset}) — Vanne A/B prises en compte dans les ACK.`,
+    });
   };
 
   const modeLabel =
@@ -339,8 +407,9 @@ export default function SimulatorPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-slate-300">
-              Génère un jeu de données cohérent: farm, passerelle, modules, zones, capteurs,
-              historique, activité pompe, profil et alertes.
+              Génère un jeu de données cohérent : espace, passerelle, modules, zones avec{" "}
+              <strong className="text-slate-200">vannes A et B</strong> (Nord → A, Centre → B sur la même pompe,
+              Sud = capteur seul), capteurs, historique, activité pompe, profil et alertes.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button onClick={bootstrap} disabled={!store.adapter}>
@@ -351,9 +420,59 @@ export default function SimulatorPage() {
               </Button>
             </div>
             {fixtureIds ? (
-              <div className="rounded-md border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">
-                Gateway: {fixtureIds.gatewayId} | Pump: {fixtureIds.pumpDeviceId} | Fields:{" "}
-                {fixtureIds.fieldDeviceIds.join(", ")}
+              <div className="space-y-3 rounded-md border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">
+                <p>
+                  Gateway: {fixtureIds.gatewayId} | Pompe: {fixtureIds.pumpDeviceId} | Champs:{" "}
+                  {fixtureIds.fieldDeviceIds.join(", ")}
+                </p>
+                {pumpLive ? (
+                  <div className="flex flex-wrap items-center gap-3 border-t border-slate-800 pt-3">
+                    <span className="font-medium text-slate-200">Status temps réel</span>
+                    <span
+                      className={
+                        pumpLive.pumpOn ? "rounded bg-blue-900/50 px-2 py-0.5 text-blue-200"
+                          : "rounded bg-slate-800 px-2 py-0.5"
+                      }
+                    >
+                      Pompe: {pumpLive.pumpOn ? "ON" : "OFF"}
+                    </span>
+                    <span
+                      className={
+                        pumpLive.valveAOpen ? "rounded bg-emerald-900/40 px-2 py-0.5 text-emerald-300"
+                          : "rounded bg-slate-800 px-2 py-0.5"
+                      }
+                    >
+                      Vanne A: {pumpLive.valveAOpen ? "ouverte" : "fermée"}
+                    </span>
+                    <span
+                      className={
+                        pumpLive.valveBOpen ? "rounded bg-emerald-900/40 px-2 py-0.5 text-emerald-300"
+                          : "rounded bg-slate-800 px-2 py-0.5"
+                      }
+                    >
+                      Vanne B: {pumpLive.valveBOpen ? "ouverte" : "fermée"}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="border-t border-slate-800 pt-3 text-slate-500">
+                    Aucune lecture sur status pompe (vérifiez la passerelle sélectionnée).
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2 border-t border-slate-800 pt-3">
+                  <span className="w-full text-slate-400">Préréglages manuels (sandbox) :</span>
+                  <Button size="sm" variant="outline" className="h-8 border-slate-600" onClick={() => applyPumpManualPreset("stop")}>
+                    Tout arrêter
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-8 border-slate-600" onClick={() => applyPumpManualPreset("a")}>
+                    Marche + A
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-8 border-slate-600" onClick={() => applyPumpManualPreset("b")}>
+                    Marche + B
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-8 border-slate-600" onClick={() => applyPumpManualPreset("ab")}>
+                    Marche + A+B
+                  </Button>
+                </div>
               </div>
             ) : (
               <p className="text-xs text-slate-400">Aucun fixture chargé.</p>

@@ -68,7 +68,17 @@ export function ManualControlsPanel({
         <CardHeader>
           <CardTitle className="text-base">Commandes & ACK</CardTitle>
         </CardHeader>
-        <CardContent className="flex items-center justify-between gap-3">
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Les écritures <code className="rounded bg-muted px-1">commands/current</code> vers une pompe
+            (<code className="rounded bg-muted px-1">POMPE-*</code>) avec{" "}
+            <code className="rounded bg-muted px-1">VALVE_OPEN</code> /{" "}
+            <code className="rounded bg-muted px-1">VALVE_CLOSE</code> et{" "}
+            <code className="rounded bg-muted px-1">valveSlot</code> A ou B sont appliquées sur{" "}
+            <code className="rounded bg-muted px-1">status/…</code> (vannes A/B + agrégat{" "}
+            <code className="rounded bg-muted px-1">valveOpen</code>), comme sur l’app.
+          </p>
+          <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
             Timeout ACK forcé (les commandes restent pending)
           </p>
@@ -78,6 +88,7 @@ export function ManualControlsPanel({
           >
             {forceAckTimeout ? "Désactiver" : "Activer"}
           </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

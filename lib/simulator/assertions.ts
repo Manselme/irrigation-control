@@ -82,6 +82,20 @@ export async function runScenarioAssertions(
     checks.push(check("command_status_observed", status === "pending" || status === "confirmed", "Commande observée pending/confirmed"));
   }
 
+  if (scenarioId === "normal_operation") {
+    const pump = await adapter.readGateway<Record<string, unknown>>(
+      fixtureIds.gatewayId,
+      `status/${fixtureIds.pumpDeviceId}`
+    );
+    checks.push(
+      check(
+        "pump_valves_a_b",
+        typeof pump?.valveAOpen === "boolean" && typeof pump?.valveBOpen === "boolean",
+        "Status pompe dual-vanne (valveAOpen / valveBOpen)"
+      )
+    );
+  }
+
   return { scenarioId, passed: checks.every((c) => c.ok), checks };
 }
 

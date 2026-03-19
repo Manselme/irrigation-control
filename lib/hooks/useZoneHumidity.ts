@@ -4,15 +4,24 @@ import { useState, useEffect } from "react";
 import { ref, onValue } from "firebase/database";
 import { getFirebaseDb } from "@/lib/firebase";
 import type { Module } from "@/types";
+import { buildGatewayDeviceIds, buildGatewaySensorPaths } from "@/lib/gatewayDevicePaths";
 
-function sensorPath(
+function sensorPaths(
   userId: string,
   moduleId: string,
   mod?: Module
-): string {
-  if (mod?.gatewayId && mod?.deviceId)
-    return `gateways/${mod.gatewayId}/sensors/${mod.deviceId}`;
-  return `users/${userId}/sensorData/${moduleId}/latest`;
+): string[] {
+  if (mod?.gatewayId) {
+    const ids = buildGatewayDeviceIds({
+      moduleType: mod.type,
+      deviceId: mod.deviceId,
+      moduleId: mod.id || moduleId,
+      factoryId: mod.factoryId,
+    });
+    const paths = buildGatewaySensorPaths(mod.gatewayId, ids);
+    if (paths.length > 0) return paths;
+  }
+  return [`users/${userId}/sensorData/${moduleId}/latest`];
 }
 
 export function useZoneHumidity(
@@ -29,6 +38,7 @@ export function useZoneHumidity(
     }
     const unsubscribes: (() => void)[] = [];
     const values: Record<string, number> = {};
+    const snapshotsByModule: Record<string, Record<string, number | null>> = {};
 
     const updateAvg = () => {
       const list = Object.values(values);
@@ -41,22 +51,35 @@ export function useZoneHumidity(
 
     fieldModuleIds.forEach((moduleId) => {
       const mod = modules?.find((m) => m.id === moduleId);
-      const path = sensorPath(userId, moduleId, mod);
-      const sensorRef = ref(getFirebaseDb(), path);
-      const unsub = onValue(sensorRef, (snap) => {
-        if (!snap.exists()) {
-          delete values[moduleId];
-        } else {
-          const v = (snap.val() as { humidity?: number })?.humidity;
-          if (typeof v === "number") values[moduleId] = v;
-        }
-        updateAvg();
+      const paths = sensorPaths(userId, moduleId, mod);
+      snapshotsByModule[moduleId] = {};
+      paths.forEach((path) => {
+        const sensorRef = ref(getFirebaseDb(), path);
+        const unsub = onValue(sensorRef, (snap) => {
+          const byPath = snapshotsByModule[moduleId] ?? {};
+          if (!snap.exists()) {
+            byPath[path] = null;
+          } else {
+            const v = (snap.val() as { humidity?: number })?.humidity;
+            byPath[path] = typeof v === "number" ? v : null;
+          }
+          snapshotsByModule[moduleId] = byPath;
+
+          const selected = paths.map((p) => byPath[p]).find((v) => typeof v === "number");
+          if (typeof selected === "number") values[moduleId] = selected;
+          else delete values[moduleId];
+          updateAvg();
+        });
+        unsubscribes.push(() => unsub());
       });
-      unsubscribes.push(() => unsub());
     });
 
     return () => unsubscribes.forEach((u) => u());
-  }, [userId, fieldModuleIds.join(","), modules?.map((m) => m.id).join(",")]);
+  }, [
+    userId,
+    fieldModuleIds.join(","),
+    modules?.map((m) => `${m.id}:${m.type}:${m.gatewayId ?? ""}:${m.deviceId ?? ""}:${m.factoryId ?? ""}`).join(","),
+  ]);
 
   return humidity;
 }
@@ -76,6 +99,7 @@ export function useAllZonesHumidity(
     }
     const unsubscribes: (() => void)[] = [];
     const values: Record<string, Record<string, number>> = {};
+    const snapshotsByZoneModule: Record<string, Record<string, Record<string, number | null>>> = {};
 
     const updateZone = (zoneId: string) => {
       const list = Object.values(values[zoneId] ?? {});
@@ -90,20 +114,31 @@ export function useAllZonesHumidity(
 
     zones.forEach((zone) => {
       values[zone.id] = {};
+      snapshotsByZoneModule[zone.id] = {};
       zone.fieldModuleIds.forEach((moduleId) => {
         const mod = modules?.find((m) => m.id === moduleId);
-        const path = sensorPath(userId, moduleId, mod);
-        const sensorRef = ref(getFirebaseDb(), path);
-        const unsub = onValue(sensorRef, (snap) => {
-          if (!snap.exists()) {
-            delete values[zone.id][moduleId];
-          } else {
-            const v = (snap.val() as { humidity?: number })?.humidity;
-            if (typeof v === "number") values[zone.id][moduleId] = v;
-          }
-          updateZone(zone.id);
+        const paths = sensorPaths(userId, moduleId, mod);
+        snapshotsByZoneModule[zone.id][moduleId] = {};
+        paths.forEach((path) => {
+          const sensorRef = ref(getFirebaseDb(), path);
+          const unsub = onValue(sensorRef, (snap) => {
+            const byModule = snapshotsByZoneModule[zone.id]?.[moduleId] ?? {};
+            if (!snap.exists()) {
+              byModule[path] = null;
+            } else {
+              const v = (snap.val() as { humidity?: number })?.humidity;
+              byModule[path] = typeof v === "number" ? v : null;
+            }
+            if (!snapshotsByZoneModule[zone.id]) snapshotsByZoneModule[zone.id] = {};
+            snapshotsByZoneModule[zone.id][moduleId] = byModule;
+
+            const selected = paths.map((p) => byModule[p]).find((v) => typeof v === "number");
+            if (typeof selected === "number") values[zone.id][moduleId] = selected;
+            else delete values[zone.id][moduleId];
+            updateZone(zone.id);
+          });
+          unsubscribes.push(() => unsub());
         });
-        unsubscribes.push(() => unsub());
       });
     });
 
@@ -111,7 +146,7 @@ export function useAllZonesHumidity(
   }, [
     userId,
     zones.map((z) => z.id + ":" + z.fieldModuleIds.join(",")).join(";"),
-    modules?.map((m) => m.id).join(","),
+    modules?.map((m) => `${m.id}:${m.type}:${m.gatewayId ?? ""}:${m.deviceId ?? ""}:${m.factoryId ?? ""}`).join(","),
   ]);
 
   return byZone;

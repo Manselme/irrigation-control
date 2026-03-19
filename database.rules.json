@@ -9,7 +9,7 @@
     "gateways": {
       "$gatewayId": {
         ".read": "auth != null",
-        ".write": "true"
+        ".write": "auth != null"
       }
     },
     "pairingTokens": {
