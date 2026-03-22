@@ -293,7 +293,7 @@ export function useModules(
     return () => clearInterval(t);
   }, []);
 
-  const modulesWithOnline = useMemo(
+  const modulesWithOnline = useMemo<Module[]>(
     () =>
       modules.map((m) => {
         const isGatewayBound =

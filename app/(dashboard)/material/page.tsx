@@ -261,7 +261,7 @@ export default function MaterialPage() {
                   await addModule(...args);
                   setSheetOpen(false);
                 }}
-                existingIds={modules.map((m) => m.id)}
+                existingIds={modules.map((m: Module) => m.id)}
               />
             )}
           </div>
@@ -271,7 +271,7 @@ export default function MaterialPage() {
       <PumpHydraulicConfigSheet
         open={!!configPumpId}
         onOpenChange={(open) => !open && setConfigPumpId(null)}
-        pump={(configPumpId ? modules.find((m) => m.id === configPumpId) : null) as Module | null}
+        pump={(configPumpId ? modules.find((m: Module) => m.id === configPumpId) : null) as Module | null}
         onSave={async (moduleId, updates) => {
           await updateModule(moduleId, updates);
         }}
