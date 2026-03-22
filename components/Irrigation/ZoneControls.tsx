@@ -15,6 +15,7 @@ import { useZoneHumidity } from "@/lib/hooks/useZoneHumidity";
 import { useLastCommandState } from "@/lib/hooks/useCommands";
 import { CloudRain, Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveGatewaySendCommandOpts } from "@/lib/gatewayDevicePaths";
 
 interface ZoneControlsProps {
   zone: Zone;
@@ -82,10 +83,7 @@ export function ZoneControls({
     pendingCommand.moduleId === pumpId &&
     (pendingCommand.status === "failed" || pendingCommand.status === "timeout");
   const pumpOnline = pumpModule?.online ?? false;
-  const gatewayOpts =
-    pumpModule?.gatewayId && pumpModule?.deviceId
-      ? { gatewayId: pumpModule.gatewayId, deviceId: pumpModule.deviceId }
-      : undefined;
+  const gatewayOpts = resolveGatewaySendCommandOpts(pumpModule);
   const { pumpOn, valveOpen, valveAOpen, valveBOpen } = useLastCommandState(userId, pumpId, gatewayOpts);
   const [selectedPumpId, setSelectedPumpId] = useState(zone.pumpModuleId ?? "");
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>(zone.fieldModuleIds ?? []);

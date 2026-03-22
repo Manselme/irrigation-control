@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Zone } from "@/types";
+import { resolveGatewaySendCommandOpts } from "@/lib/gatewayDevicePaths";
 
 const DEFAULT_LAT = 46.6;
 const DEFAULT_LNG = 1.9;
@@ -40,7 +41,10 @@ function getPrimaryPumpId(zone: Zone): string {
 
 function getValveSlot(zone: Zone): "A" | "B" | null {
   const s = zone.sectors?.[0]?.valveSlot;
-  return s === "A" || s === "B" ? s : null;
+  if (s === "A" || s === "B") return s;
+  const hasPump = !!(zone.pumpModuleId || (zone.pumpModuleIds && zone.pumpModuleIds.length > 0));
+  if (hasPump) return "A";
+  return null;
 }
 
 /** Clé unique pompe+vanne pour l'UI (ex. POMPE-xxx:A). */
@@ -285,8 +289,7 @@ function IrrigationPageContent() {
         | "PUMP_OFF"
     ) => {
       const mod = modulesWithGatewayStatus.find((m) => m.id === moduleId);
-      const opts =
-        mod?.gatewayId && mod?.deviceId ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId } : undefined;
+      const opts = resolveGatewaySendCommandOpts(mod);
       await sendCommand(moduleId, type, opts);
     },
     [modulesWithGatewayStatus, sendCommand]
@@ -300,14 +303,34 @@ function IrrigationPageContent() {
         setNotice("Associez une pompe et une vanne (A ou B) à cette zone.");
         return;
       }
-      await sendForPump(pumpId, "PUMP_ON");
-      if (slot === "A") await sendForPump(pumpId, "VALVE_A_OPEN");
-      else await sendForPump(pumpId, "VALVE_B_OPEN");
-
-      if (durationMin > 0) {
-        setTimedWatering({ pumpId, slot, endsAt: Date.now() + durationMin * 60 * 1000 });
-      } else setTimedWatering(null);
-      setNotice("Irrigation démarrée.");
+      try {
+        const r1 = await sendForPump(pumpId, "PUMP_ON");
+        if (r1 === "failed" || r1 === "timeout") {
+          setNotice(
+            r1 === "timeout"
+              ? "Pas de confirmation de la passerelle (délai). Vérifiez la mère et le module pompe."
+              : "La passerelle a signalé un échec pour la pompe."
+          );
+          return;
+        }
+        const r2 =
+          slot === "A" ? await sendForPump(pumpId, "VALVE_A_OPEN") : await sendForPump(pumpId, "VALVE_B_OPEN");
+        if (r2 === "failed" || r2 === "timeout") {
+          setNotice(
+            r2 === "timeout"
+              ? "Pompe OK, mais pas de confirmation pour la vanne (délai)."
+              : "Pompe OK, mais la vanne a échoué côté passerelle."
+          );
+          return;
+        }
+        if (durationMin > 0) {
+          setTimedWatering({ pumpId, slot, endsAt: Date.now() + durationMin * 60 * 1000 });
+        } else setTimedWatering(null);
+        setNotice("Irrigation démarrée.");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setNotice(msg);
+      }
     },
     [sendForPump, durationMin]
   );

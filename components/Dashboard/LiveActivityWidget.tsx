@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAllPumpStates } from "@/lib/hooks/useAllPumpStates";
 import { useSendCommand } from "@/lib/hooks/useCommands";
+import { resolveGatewaySendCommandOpts } from "@/lib/gatewayDevicePaths";
 import type { Module } from "@/types";
 import { Square } from "lucide-react";
 
@@ -27,11 +28,8 @@ export function LiveActivityWidget({
   const handleStop = (moduleId: string) => {
     void (async () => {
       const state = pumpStates[moduleId];
-      const mod = pumpModules.find((m) => m.id === moduleId);
-      const opts =
-        mod?.gatewayId && mod?.deviceId
-          ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId }
-          : undefined;
+    const mod = pumpModules.find((m) => m.id === moduleId);
+    const opts = resolveGatewaySendCommandOpts(mod);
       if (state?.pumpOn) await sendCommand(moduleId, "PUMP_OFF", opts);
       if (state?.valveOpen) await sendCommand(moduleId, "VALVE_CLOSE", opts);
     })();

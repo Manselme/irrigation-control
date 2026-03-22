@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Download, ArrowLeft, RefreshCw } from "lucide-react";
 import type { SensorHistoryPoint } from "@/lib/hooks/useSensorHistory";
 import type { Zone, Module } from "@/types";
+import { resolveGatewaySendCommandOpts } from "@/lib/gatewayDevicePaths";
 
 function getZoneCenter(zone: { polygon?: { coordinates?: number[][][] } }): { lat: number; lng: number } | null {
   const coords = zone.polygon?.coordinates?.[0];
@@ -123,10 +124,7 @@ export function ZoneHistoryDetail({
   const pumpId = zone.pumpModuleId ?? undefined;
 
   const sensorPoints = useSensorHistory(user?.uid, firstFieldId ?? undefined, bounds.days);
-  const pumpGatewayOpts =
-    pumpModule?.gatewayId && pumpModule?.deviceId
-      ? { gatewayId: pumpModule.gatewayId, deviceId: pumpModule.deviceId }
-      : undefined;
+  const pumpGatewayOpts = resolveGatewaySendCommandOpts(pumpModule ?? undefined);
   const [pumpDays, refreshPumpActivity] = usePumpActivity(
     user?.uid,
     pumpId,
