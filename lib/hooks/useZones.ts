@@ -49,8 +49,8 @@ function parseZone(id: string, data: Record<string, unknown>): Zone {
           ? (s.valveModuleIds as string[])
           : [],
         valveSlot:
-          s.valveSlot === "A" || s.valveSlot === "B"
-            ? (s.valveSlot as "A" | "B")
+          s.valveSlot === "A" || s.valveSlot === "B" || s.valveSlot === "AB"
+            ? (s.valveSlot as "A" | "B" | "AB")
             : undefined,
       };
     }) ?? [

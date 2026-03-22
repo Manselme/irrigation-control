@@ -1,5 +1,6 @@
 export type ModuleType = "mother" | "pump" | "field";
-export type ValveSlot = "A" | "B";
+/** Vanne logique : une voie, l’autre, ou les deux (même pompe). */
+export type ValveSlot = "A" | "B" | "AB";
 
 export interface Position {
   lat: number;

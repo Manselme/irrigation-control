@@ -14,7 +14,6 @@ import { AutoModeSwitch } from "@/components/Irrigation/AutoModeSwitch";
 import { ManualToggles } from "@/components/Irrigation/ManualToggles";
 import { useLastCommandState } from "@/lib/hooks/useCommands";
 import { formatRelativeTime } from "@/lib/time";
-import { resolveGatewaySendCommandOpts } from "@/lib/gatewayDevicePaths";
 
 type ActionTab = "pilot" | "diagnostic" | "sectors";
 
@@ -114,7 +113,10 @@ export function IrrigationActionSheet({
     [zonePumpIds, modules]
   );
   const mainPump = zonePumpModules[0] ?? null;
-  const gatewayOpts = resolveGatewaySendCommandOpts(mainPump);
+  const gatewayOpts =
+    mainPump?.gatewayId && mainPump?.deviceId
+      ? { gatewayId: mainPump.gatewayId, deviceId: mainPump.deviceId }
+      : undefined;
   const { pumpOn, valveOpen, valveAOpen, valveBOpen, lastPumpOnAt } = useLastCommandState(
     userId,
     mainPump?.id ?? null,

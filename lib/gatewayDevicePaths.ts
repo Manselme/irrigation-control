@@ -1,4 +1,4 @@
-import type { Module, ModuleType } from "@/types";
+import type { ModuleType } from "@/types";
 
 function normalizeId(value: string | undefined): string | null {
   if (!value) return null;
@@ -58,27 +58,6 @@ export function buildGatewayDeviceIds(input: BuildGatewayDeviceIdsInput): string
           : [`DEVICE-${hex}`, `POMPE-${hex}`, `CHAMP-${hex}`];
 
   return dedupeInOrder([normalizedDeviceId, ...prefixedAliases, normalizedModuleId]);
-}
-
-/**
- * Options pour `gateways/{id}/commands/current` : identifiant matériel requis par la mère (dest LoRa).
- * Si `deviceId` est absent sur la fiche module, le déduit depuis l'id / factoryId (ex. POMPE-XXXXXXXX),
- * comme pour la lecture `status/` (voir buildGatewayDeviceIds).
- */
-export function resolveGatewaySendCommandOpts(
-  module: Pick<Module, "id" | "type" | "gatewayId" | "deviceId" | "factoryId"> | null | undefined
-): { gatewayId: string; deviceId: string } | undefined {
-  if (!module?.gatewayId?.trim()) return undefined;
-  const gatewayId = module.gatewayId.trim();
-  const ids = buildGatewayDeviceIds({
-    moduleType: module.type,
-    moduleId: module.id,
-    deviceId: module.deviceId,
-    factoryId: module.factoryId,
-  });
-  const deviceId = ids[0];
-  if (!deviceId) return undefined;
-  return { gatewayId, deviceId };
 }
 
 export function buildGatewayStatusPaths(

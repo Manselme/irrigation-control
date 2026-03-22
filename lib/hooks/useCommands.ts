@@ -14,11 +14,6 @@ export interface SendCommandGatewayOpts {
   deviceId: string;
 }
 
-/** `dest` Firebase / parse mère : trim + majuscules (ex. POMPE-04068E6C). */
-export function normalizeGatewayDeviceId(deviceId: string): string {
-  return deviceId.trim().toUpperCase();
-}
-
 export function useSendCommand(userId: string | undefined) {
   const [pendingCommand, setPendingCommand] = useState<{
     moduleId: string;
@@ -37,12 +32,11 @@ export function useSendCommand(userId: string | undefined) {
       moduleId: string,
       type: CommandType,
       gatewayOpts?: SendCommandGatewayOpts
-    ): Promise<"confirmed" | "failed" | "timeout" | undefined> => {
-      if (!userId) return undefined;
+    ) => {
+      if (!userId) return;
       const commandId = `cmd_${Date.now()}`;
 
       if (gatewayOpts?.gatewayId && gatewayOpts?.deviceId) {
-        const normalizedDest = normalizeGatewayDeviceId(gatewayOpts.deviceId);
         const gatewayType: CommandType =
           type === "VALVE_A_OPEN" || type === "VALVE_B_OPEN"
             ? "VALVE_OPEN"
@@ -61,12 +55,12 @@ export function useSendCommand(userId: string | undefined) {
         );
         try {
           await set(currentRef, {
-            dest: normalizedDest,
+            dest: gatewayOpts.deviceId,
             type: gatewayType,
             id: commandId,
             status: "pending",
             createdAt: Date.now(),
-            ...(valveSlot !== undefined ? { valveSlot } : {}),
+            valveSlot,
           });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
@@ -80,50 +74,8 @@ export function useSendCommand(userId: string | undefined) {
           type,
           status: "pending",
           gatewayId: gatewayOpts.gatewayId,
-          deviceId: normalizedDest,
+          deviceId: gatewayOpts.deviceId,
         });
-
-        const result = await new Promise<"confirmed" | "failed" | "timeout">((resolve) => {
-          let unsub: (() => void) | undefined;
-          const timeoutId = setTimeout(() => {
-            unsub?.();
-            if (timeoutRef.current === timeoutId) timeoutRef.current = null;
-            setPendingCommand((prev) =>
-              prev?.moduleId === moduleId && prev?.status === "pending"
-                ? { ...prev, status: "timeout" }
-                : prev
-            );
-            resolve("timeout");
-          }, COMMAND_TIMEOUT_MS);
-          timeoutRef.current = timeoutId;
-
-          unsub = onValue(
-            currentRef,
-            (snap) => {
-              if (!snap.exists()) return;
-              const data = snap.val() as Record<string, unknown>;
-              if (data.id !== commandId) return;
-              const st = data.status as string | undefined;
-              if (st === "confirmed" || st === "failed") {
-                clearTimeout(timeoutId);
-                if (timeoutRef.current === timeoutId) timeoutRef.current = null;
-                unsub?.();
-                setPendingCommand({
-                  moduleId,
-                  type,
-                  status: st,
-                  gatewayId: gatewayOpts.gatewayId,
-                  deviceId: normalizedDest,
-                });
-                resolve(st);
-              }
-            },
-            (err) => {
-              console.error("[Firebase]", err);
-            }
-          );
-        });
-        return result;
       } else {
         const commandsRef = ref(getFirebaseDb(), `users/${userId}/commands/${moduleId}`);
         const stateRef = ref(getFirebaseDb(), `users/${userId}/actuatorState/${moduleId}`);
@@ -195,7 +147,6 @@ export function useSendCommand(userId: string | undefined) {
         );
       }, COMMAND_TIMEOUT_MS);
       timeoutRef.current = timeoutId;
-      return undefined;
     },
     [userId]
   );
@@ -203,9 +154,6 @@ export function useSendCommand(userId: string | undefined) {
   useEffect(() => {
     if (!userId || !pendingCommand || pendingCommand.status !== "pending")
       return;
-    if (pendingCommand.gatewayId && pendingCommand.deviceId) {
-      return;
-    }
     const { moduleId, gatewayId } = pendingCommand;
     const path =
       gatewayId && pendingCommand.deviceId
@@ -236,13 +184,7 @@ export function useSendCommand(userId: string | undefined) {
       }
     );
     return () => unsubscribe();
-  }, [
-    userId,
-    pendingCommand?.moduleId,
-    pendingCommand?.status,
-    pendingCommand?.gatewayId,
-    pendingCommand?.deviceId,
-  ]);
+  }, [userId, pendingCommand?.moduleId, pendingCommand?.status, pendingCommand?.gatewayId]);
 
   const clearPending = useCallback(() => {
     if (timeoutRef.current) {
@@ -367,14 +309,7 @@ export function useLastCommandState(
         createdAt?: number;
       };
       if (data?.status !== "confirmed" || !data?.type) return;
-      if (
-        useGateway &&
-        gatewayOpts?.deviceId &&
-        normalizeGatewayDeviceId(String(data.dest ?? "")) !==
-          normalizeGatewayDeviceId(gatewayOpts.deviceId)
-      ) {
-        return;
-      }
+      if (useGateway && data.dest !== gatewayOpts?.deviceId) return;
       const type = data.type;
       runTransaction(stateRef, (cur) => {
         const prev =
