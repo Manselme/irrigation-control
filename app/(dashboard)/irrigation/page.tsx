@@ -15,7 +15,7 @@ import { MapView } from "@/components/Map/MapView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Zone, ValveSlot } from "@/types";
+import type { Zone, ValveSlot, Module, LinkedGateway } from "@/types";
 import { resolveGatewaySendCommandOpts } from "@/lib/gatewayDevicePaths";
 import { formatModulePumpPressure } from "@/lib/pumpPressure";
 
@@ -115,6 +115,15 @@ function isZoneActivelyIrrigating(
   return st.valveOpen;
 }
 
+/** Ligne agrégée sol + irrigation pour une zone (liste triée stress). */
+type IrrigationZoneRow = {
+  zone: Zone;
+  tension?: number;
+  humidity?: number;
+  stress: number;
+  running: boolean;
+};
+
 function zoneStress(
   zone: Zone,
   latestSensorByModule: Record<string, { tension_cb?: number; humidity?: number } | null>,
@@ -160,29 +169,29 @@ function IrrigationPageContent() {
 
   const modulesWithGatewayStatus = useMemo(
     () =>
-      modules.map((m) => ({
+      modules.map((m: Module) => ({
         ...m,
         online:
           m.type === "mother" && m.gatewayId != null
-            ? (gateways.find((g) => g.gatewayId === m.gatewayId)?.online ?? false)
+            ? (gateways.find((g: LinkedGateway) => g.gatewayId === m.gatewayId)?.online ?? false)
             : m.online,
       })),
     [modules, gateways]
   );
 
   const fieldModules = useMemo(
-    () => modulesWithGatewayStatus.filter((m) => m.type === "field"),
+    () => modulesWithGatewayStatus.filter((m: Module) => m.type === "field"),
     [modulesWithGatewayStatus]
   );
   const pumpModules = useMemo(
-    () => modulesWithGatewayStatus.filter((m) => m.type === "pump"),
+    () => modulesWithGatewayStatus.filter((m: Module) => m.type === "pump"),
     [modulesWithGatewayStatus]
   );
 
   const latestSensorByModule = useLatestSensorMap(user?.uid, fieldModules);
   const allPumpRefs = useMemo(
     () =>
-      pumpModules.map((p) => ({
+      pumpModules.map((p: Module) => ({
         moduleId: p.id,
         gatewayId: p.gatewayId,
         deviceId: p.deviceId,
@@ -193,33 +202,33 @@ function IrrigationPageContent() {
   );
   const pumpStates = useAllPumpStates(user?.uid, allPumpRefs);
 
-  const selectedZone = selectedZoneId ? zones.find((z) => z.id === selectedZoneId) ?? null : null;
+  const selectedZone = selectedZoneId ? zones.find((z: Zone) => z.id === selectedZoneId) ?? null : null;
 
   useEffect(() => {
     const z = searchParams.get("zone");
-    if (z && zones.some((x) => x.id === z)) setSelectedZoneId(z);
+    if (z && zones.some((x: Zone) => x.id === z)) setSelectedZoneId(z);
   }, [searchParams, zones]);
 
   useEffect(() => {
-    if (selectedZoneId && !zones.some((z) => z.id === selectedZoneId)) setSelectedZoneId(null);
+    if (selectedZoneId && !zones.some((z: Zone) => z.id === selectedZoneId)) setSelectedZoneId(null);
   }, [selectedZoneId, zones]);
 
   const thresholdCb = alertConfig?.stressTensionThreshold ?? 60;
   const zoneRows = useMemo(
     () =>
       zones
-        .map((zone) => {
+        .map((zone: Zone) => {
           const st = zoneStress(zone, latestSensorByModule, thresholdCb);
           const running = isZoneActivelyIrrigating(zone, pumpStates);
           return { zone, ...st, running };
         })
-        .sort((a, b) => b.stress - a.stress),
+        .sort((a: IrrigationZoneRow, b: IrrigationZoneRow) => b.stress - a.stress),
     [zones, latestSensorByModule, thresholdCb, pumpStates]
   );
 
   const zoneMapStyles = useMemo(() => {
     const styles: Record<string, { color: string; fillColor: string; fillOpacity: number; weight: number }> = {};
-    zoneRows.forEach((r) => {
+    zoneRows.forEach((r: IrrigationZoneRow) => {
       if (r.stress >= 70) styles[r.zone.id] = { color: "#b91c1c", fillColor: "#f87171", fillOpacity: 0.35, weight: 2 };
       else if (r.stress >= 40)
         styles[r.zone.id] = { color: "#b45309", fillColor: "#fbbf24", fillOpacity: 0.28, weight: 2 };
@@ -230,7 +239,7 @@ function IrrigationPageContent() {
 
   const pumpValveFillByModuleId = useMemo(() => {
     const acc: Record<string, { A?: string; B?: string }> = {};
-    zoneRows.forEach((r) => {
+    zoneRows.forEach((r: IrrigationZoneRow) => {
       const pumpId = getPrimaryPumpId(r.zone);
       const slot = getValveSlot(r.zone);
       if (!pumpId || !slot) return;
@@ -244,18 +253,18 @@ function IrrigationPageContent() {
   }, [zoneRows, zoneMapStyles]);
 
   const assignedSensorIds = useMemo(
-    () => new Set(zones.map((z) => getZoneSensorId(z)).filter(Boolean)),
+    () => new Set(zones.map((z: Zone) => getZoneSensorId(z)).filter(Boolean)),
     [zones]
   );
 
   const assignedValveKeys = useMemo(
-    () => new Set(zones.map((z) => getZoneValveKey(z)).filter(Boolean)),
+    () => new Set(zones.map((z: Zone) => getZoneValveKey(z)).filter(Boolean)),
     [zones]
   );
 
   const freeSensors = useMemo(
     () =>
-      fieldModules.filter((m) => {
+      fieldModules.filter((m: Module) => {
         if (selectedZone && getZoneSensorId(selectedZone) === m.id) return true;
         return !assignedSensorIds.has(m.id);
       }),
@@ -264,7 +273,7 @@ function IrrigationPageContent() {
 
   const valveOptions = useMemo(() => {
     const opts: Array<{ id: string; label: string; pumpId: string }> = [];
-    pumpModules.forEach((pump) => {
+    pumpModules.forEach((pump: Module) => {
       (["A", "B", "AB"] as const).forEach((slot) => {
         const id = `${pump.id}:${slot}`;
         const label =
@@ -297,7 +306,7 @@ function IrrigationPageContent() {
         | "PUMP_ON"
         | "PUMP_OFF"
     ) => {
-      const mod = modulesWithGatewayStatus.find((m) => m.id === moduleId);
+      const mod = modulesWithGatewayStatus.find((m: Module) => m.id === moduleId);
       const opts = resolveGatewaySendCommandOpts(mod);
       return sendCommand(moduleId, type, opts);
     },
@@ -612,7 +621,7 @@ function IrrigationPageContent() {
                       }}
                     >
                       <option value="">Aucun capteur</option>
-                      {freeSensors.map((m) => (
+                      {freeSensors.map((m: Module) => (
                         <option key={m.id} value={m.id}>
                           {m.name || m.id}
                         </option>
@@ -664,7 +673,7 @@ function IrrigationPageContent() {
                   </div>
                   {(() => {
                     const pid = getPrimaryPumpId(selectedZone);
-                    const pm = pid ? modulesWithGatewayStatus.find((m) => m.id === pid) : null;
+                    const pm = pid ? modulesWithGatewayStatus.find((m: Module) => m.id === pid) : null;
                     return (
                       <p className="text-xs text-muted-foreground">
                         Pression ligne : {pm ? formatModulePumpPressure(pm) : "—"}
@@ -677,9 +686,9 @@ function IrrigationPageContent() {
               <div className="rounded-lg border p-3">
                 <p className="text-sm font-medium">Santé du sol</p>
                 {(() => {
-                  const row = zoneRows.find((r) => r.zone.id === selectedZone.id);
+                  const row = zoneRows.find((r: IrrigationZoneRow) => r.zone.id === selectedZone.id);
                   const battery = getZoneSensorId(selectedZone)
-                    ? modulesWithGatewayStatus.find((m) => m.id === getZoneSensorId(selectedZone))?.battery
+                    ? modulesWithGatewayStatus.find((m: Module) => m.id === getZoneSensorId(selectedZone))?.battery
                     : undefined;
                   const stress = row?.stress ?? 0;
                   const barClass =
@@ -711,7 +720,7 @@ function IrrigationPageContent() {
                     pendingCommand.moduleId === pumpId &&
                     pendingCommand.status === "pending";
                   const pumpMod = pumpId
-                    ? modulesWithGatewayStatus.find((m) => m.id === pumpId)
+                    ? modulesWithGatewayStatus.find((m: Module) => m.id === pumpId)
                     : undefined;
                   const linkedLabel = pumpId
                     ? `${pumpMod?.name || pumpId}${
@@ -826,9 +835,9 @@ function IrrigationPageContent() {
               {zoneRows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Aucune zone pour le moment.</p>
               ) : (
-                zoneRows.map((row) => {
+                zoneRows.map((row: IrrigationZoneRow) => {
                   const pid = getPrimaryPumpId(row.zone);
-                  const pmod = pid ? modulesWithGatewayStatus.find((m) => m.id === pid) : null;
+                  const pmod = pid ? modulesWithGatewayStatus.find((m: Module) => m.id === pid) : null;
                   return (
                     <button
                       key={row.zone.id}
