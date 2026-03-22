@@ -25,14 +25,16 @@ export function LiveActivityWidget({
   );
 
   const handleStop = (moduleId: string) => {
-    const state = pumpStates[moduleId];
-    const mod = pumpModules.find((m) => m.id === moduleId);
-    const opts =
-      mod?.gatewayId && mod?.deviceId
-        ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId }
-        : undefined;
-    if (state?.pumpOn) sendCommand(moduleId, "PUMP_OFF", opts);
-    if (state?.valveOpen) sendCommand(moduleId, "VALVE_CLOSE", opts);
+    void (async () => {
+      const state = pumpStates[moduleId];
+      const mod = pumpModules.find((m) => m.id === moduleId);
+      const opts =
+        mod?.gatewayId && mod?.deviceId
+          ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId }
+          : undefined;
+      if (state?.pumpOn) await sendCommand(moduleId, "PUMP_OFF", opts);
+      if (state?.valveOpen) await sendCommand(moduleId, "VALVE_CLOSE", opts);
+    })();
   };
 
   return (

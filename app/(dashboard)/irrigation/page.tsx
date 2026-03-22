@@ -272,7 +272,7 @@ function IrrigationPageContent() {
 
   const { sendCommand, pendingCommand } = useSendCommand(user?.uid);
   const sendForPump = useCallback(
-    (
+    async (
       moduleId: string,
       type:
         | "VALVE_OPEN"
@@ -287,22 +287,22 @@ function IrrigationPageContent() {
       const mod = modulesWithGatewayStatus.find((m) => m.id === moduleId);
       const opts =
         mod?.gatewayId && mod?.deviceId ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId } : undefined;
-      sendCommand(moduleId, type, opts);
+      await sendCommand(moduleId, type, opts);
     },
     [modulesWithGatewayStatus, sendCommand]
   );
 
   const startZone = useCallback(
-    (zone: Zone) => {
+    async (zone: Zone) => {
       const pumpId = getPrimaryPumpId(zone);
       const slot = getValveSlot(zone);
       if (!pumpId || !slot) {
         setNotice("Associez une pompe et une vanne (A ou B) à cette zone.");
         return;
       }
-      sendForPump(pumpId, "PUMP_ON");
-      if (slot === "A") sendForPump(pumpId, "VALVE_A_OPEN");
-      else sendForPump(pumpId, "VALVE_B_OPEN");
+      await sendForPump(pumpId, "PUMP_ON");
+      if (slot === "A") await sendForPump(pumpId, "VALVE_A_OPEN");
+      else await sendForPump(pumpId, "VALVE_B_OPEN");
 
       if (durationMin > 0) {
         setTimedWatering({ pumpId, slot, endsAt: Date.now() + durationMin * 60 * 1000 });
@@ -313,14 +313,14 @@ function IrrigationPageContent() {
   );
 
   const stopZone = useCallback(
-    (zone: Zone) => {
+    async (zone: Zone) => {
       const pumpId = getPrimaryPumpId(zone);
       const slot = getValveSlot(zone);
       if (!pumpId) return;
-      if (slot === "A") sendForPump(pumpId, "VALVE_A_CLOSE");
-      else if (slot === "B") sendForPump(pumpId, "VALVE_B_CLOSE");
-      else sendForPump(pumpId, "VALVE_CLOSE");
-      sendForPump(pumpId, "PUMP_OFF");
+      if (slot === "A") await sendForPump(pumpId, "VALVE_A_CLOSE");
+      else if (slot === "B") await sendForPump(pumpId, "VALVE_B_CLOSE");
+      else await sendForPump(pumpId, "VALVE_CLOSE");
+      await sendForPump(pumpId, "PUMP_OFF");
       setTimedWatering(null);
       setNotice("Irrigation stoppée.");
     },
@@ -334,14 +334,17 @@ function IrrigationPageContent() {
     }
     if (!timedWatering) return;
     const delay = Math.max(0, timedWatering.endsAt - Date.now());
+    const tw = timedWatering;
     timedStopRef.current = setTimeout(() => {
-      const { pumpId, slot } = timedWatering;
-      sendForPump(pumpId, "PUMP_OFF");
-      if (slot === "A") sendForPump(pumpId, "VALVE_A_CLOSE");
-      else if (slot === "B") sendForPump(pumpId, "VALVE_B_CLOSE");
-      else sendForPump(pumpId, "VALVE_CLOSE");
-      setTimedWatering(null);
-      setNotice("Durée écoulée: irrigation arrêtée.");
+      void (async () => {
+        const { pumpId, slot } = tw;
+        if (slot === "A") await sendForPump(pumpId, "VALVE_A_CLOSE");
+        else if (slot === "B") await sendForPump(pumpId, "VALVE_B_CLOSE");
+        else await sendForPump(pumpId, "VALVE_CLOSE");
+        await sendForPump(pumpId, "PUMP_OFF");
+        setTimedWatering(null);
+        setNotice("Durée écoulée: irrigation arrêtée.");
+      })();
     }, delay);
     return () => {
       if (timedStopRef.current) clearTimeout(timedStopRef.current);
@@ -603,7 +606,9 @@ function IrrigationPageContent() {
                         size="lg"
                         variant={running ? "destructive" : "default"}
                         disabled={!pumpId || !slot || pending}
-                        onClick={() => (running ? stopZone(selectedZone) : startZone(selectedZone))}
+                        onClick={() => {
+                          void (running ? stopZone(selectedZone) : startZone(selectedZone));
+                        }}
                       >
                         {pending ? "Envoi…" : running ? "STOPPER" : "DÉMARRER"}
                       </Button>

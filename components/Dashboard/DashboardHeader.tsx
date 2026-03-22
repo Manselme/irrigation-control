@@ -34,16 +34,18 @@ export function DashboardHeader({ onStopAll }: DashboardHeaderProps) {
   );
 
   const handleStopAll = () => {
-    pumpModules.forEach((mod) => {
-      const state = pumpStates[mod.id];
-      const opts =
-        mod.gatewayId && mod.deviceId
-          ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId }
-          : undefined;
-      if (state?.pumpOn) sendCommand(mod.id, "PUMP_OFF", opts);
-      if (state?.valveOpen) sendCommand(mod.id, "VALVE_CLOSE", opts);
-    });
-    onStopAll?.();
+    void (async () => {
+      for (const mod of pumpModules) {
+        const state = pumpStates[mod.id];
+        const opts =
+          mod.gatewayId && mod.deviceId
+            ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId }
+            : undefined;
+        if (state?.pumpOn) await sendCommand(mod.id, "PUMP_OFF", opts);
+        if (state?.valveOpen) await sendCommand(mod.id, "VALVE_CLOSE", opts);
+      }
+      onStopAll?.();
+    })();
   };
 
   const farmName = farms[0]?.name ?? "Mon exploitation";

@@ -81,7 +81,7 @@ export function ZoneControls({
     pendingCommand &&
     pendingCommand.moduleId === pumpId &&
     (pendingCommand.status === "failed" || pendingCommand.status === "timeout");
-  const pumpOnline = (pumpModule?.online ?? false) && !hasFailedCommand;
+  const pumpOnline = pumpModule?.online ?? false;
   const gatewayOpts =
     pumpModule?.gatewayId && pumpModule?.deviceId
       ? { gatewayId: pumpModule.gatewayId, deviceId: pumpModule.deviceId }
@@ -196,6 +196,12 @@ export function ZoneControls({
                 {suggestion.text}
               </p>
             </div>
+            {hasFailedCommand ? (
+              <p className="text-xs text-destructive">
+                Dernière commande non confirmée (échec ou délai). Les contrôles restent disponibles ; vérifiez la
+                passerelle ou réessayez.
+              </p>
+            ) : null}
             <ManualToggles
               pumpModuleId={pumpId}
               pumpOnline={pumpOnline}
