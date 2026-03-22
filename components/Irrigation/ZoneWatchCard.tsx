@@ -20,6 +20,8 @@ interface ZoneWatchCardProps {
   onStartStop: () => void;
   isPumpRunning: boolean;
   hasPump: boolean;
+  /** Module pompe associé (pression affichée si présent). */
+  pumpModule?: Module | null;
 }
 
 function statusLabel(status: ZoneStatus): string {

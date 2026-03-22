@@ -137,6 +137,24 @@ export interface UseModulesOptions {
   offlineThresholdMinutes?: number;
 }
 
+export type UseModulesUpdatePayload = Partial<
+  Pick<
+    Module,
+    | "battery"
+    | "online"
+    | "pressure"
+    | "pressurePsi"
+    | "position"
+    | "name"
+    | "lastSeen"
+    | "factoryId"
+    | "gatewayId"
+    | "deviceId"
+    | "hydraulicSettings"
+    | "valves"
+  >
+>;
+
 export function useModules(
   userId: string | undefined,
   options?: UseModulesOptions
@@ -215,9 +233,9 @@ export function useModules(
     });
     setPumpPressurePsiByModuleId((prev) => {
       const next: Record<string, number | undefined> = {};
-      for (const id of trackedIds) {
+      trackedIds.forEach((id) => {
         if (id in prev) next[id] = prev[id];
-      }
+      });
       return next;
     });
     {
@@ -349,6 +367,22 @@ export function useModules(
         };
       }),
     [modules, gatewayLastSeenByModuleId, nowTick, thresholdMs]
+  );
+
+  /** Enrichit les pompes avec pressurePsi / pressure (bar) depuis le statut passerelle. */
+  const modulesWithPumpPressure = useMemo<Module[]>(
+    () =>
+      modulesWithOnline.map((m) => {
+        if (m.type !== "pump") return m;
+        const psi = pumpPressurePsiByModuleId[m.id];
+        if (psi == null || !Number.isFinite(psi)) return m;
+        return {
+          ...m,
+          pressurePsi: psi,
+          pressure: psiToBar(psi),
+        };
+      }),
+    [modulesWithOnline, pumpPressurePsiByModuleId]
   );
 
   const addModule = useCallback(
