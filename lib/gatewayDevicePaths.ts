@@ -81,6 +81,11 @@ export function resolveGatewaySendCommandOpts(
   return { gatewayId, deviceId };
 }
 
+/** Aligné sur la mère / Firebase `dest`. */
+export function normalizeGatewayDeviceId(deviceId: string): string {
+  return deviceId.trim().toUpperCase();
+}
+
 export function buildGatewayStatusPaths(
   gatewayId: string,
   ids: string[]
