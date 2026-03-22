@@ -286,7 +286,7 @@ export default function DashboardPage() {
             />
             <MaintenanceCompactWidget
               lowBatteries={modules
-                .map((module) => {
+                .map((module: Module) => {
                   const batteryCandidate = latestSensors[module.id]?.battery;
                   const battery =
                     typeof batteryCandidate === "number" && Number.isFinite(batteryCandidate)

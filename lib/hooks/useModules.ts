@@ -392,26 +392,7 @@ export function useModules(
   );
 
   const updateModule = useCallback(
-    async (
-      moduleId: string,
-      updates: Partial<
-        Pick<
-          Module,
-          | "battery"
-          | "online"
-          | "pressure"
-          | "pressurePsi"
-          | "position"
-          | "name"
-          | "lastSeen"
-          | "factoryId"
-          | "gatewayId"
-          | "deviceId"
-          | "hydraulicSettings"
-          | "valves"
-        >
-      >
-    ) => {
+    async (moduleId: string, updates: UseModulesUpdatePayload) => {
       if (!userId) return;
       const moduleRef = ref(getFirebaseDb(), `users/${userId}/modules/${moduleId}`);
       const snap = await get(moduleRef);
