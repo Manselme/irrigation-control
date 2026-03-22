@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { isZoneItemId } from "@/lib/quickAccess";
 import { formatRelativeTime } from "@/lib/time";
+import type { Module } from "@/types";
 
 const ICON_BY_ID: Record<string, React.ComponentType<{ className?: string }>> = {
   material: Wrench,
@@ -78,14 +79,14 @@ export default function DashboardPage() {
   const { items, setQuickAccess } = useQuickAccess(user?.uid);
   const [editorOpen, setEditorOpen] = useState(false);
 
-  const pumpModules = modules.filter((m) => m.type === "pump");
-  const pumpRefs = pumpModules.map((m) => ({
+  const pumpModules = modules.filter((m: Module) => m.type === "pump");
+  const pumpRefs = pumpModules.map((m: Module) => ({
     moduleId: m.id,
     gatewayId: m.gatewayId,
     deviceId: m.deviceId,
   }));
   const pumpStates = useAllPumpStates(user?.uid, pumpRefs);
-  const fieldModules = modules.filter((m) => m.type === "field");
+  const fieldModules = modules.filter((m: Module) => m.type === "field");
   const latestSensors = useLatestSensorMap(user?.uid, fieldModules);
   const [weeklyVolumeM3, setWeeklyVolumeM3] = useState(0);
   const weeklyFlowEstimateM3 = useWeeklyFlowEstimate(user?.uid);
@@ -122,7 +123,7 @@ export default function DashboardPage() {
   const dryZonesCount = criticalCandidates.filter((z) => z.tensionCb >= criticalThreshold).length;
   const networkIncidents =
     gateways.filter((g) => !g.online).length +
-    modules.filter((m) => (m.type === "field" || m.type === "pump") && !m.online).length;
+    modules.filter((m: Module) => (m.type === "field" || m.type === "pump") && !m.online).length;
 
   useEffect(() => {
     let mounted = true;
@@ -161,14 +162,14 @@ export default function DashboardPage() {
     return () => {
       mounted = false;
     };
-  }, [user?.uid, pumpModules.map((m) => `${m.id}:${m.gatewayId ?? ""}:${m.deviceId ?? ""}`).join(",")]);
+  }, [user?.uid, pumpModules.map((m: Module) => `${m.id}:${m.gatewayId ?? ""}:${m.deviceId ?? ""}`).join(",")]);
 
   const weeklyVolumeM3Effective = weeklyFlowEstimateM3 ?? weeklyVolumeM3;
 
   const hasGateway = gateways.length > 0;
-  const hasModules = modules.some((m) => m.type === "pump" || m.type === "field");
+  const hasModules = modules.some((m: Module) => m.type === "pump" || m.type === "field");
   const hasZone = zones.length > 0;
-  const hasPump = modules.some((m) => m.type === "pump");
+  const hasPump = modules.some((m: Module) => m.type === "pump");
   const onboardingDone = hasGateway && hasModules && hasZone && hasPump;
 
   const firstOfflineGateway = gateways.find((g) => !g.online);
