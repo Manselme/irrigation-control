@@ -5,6 +5,7 @@ import { ref, get, set, onValue } from "firebase/database";
 import { getFirebaseDb } from "@/lib/firebase";
 import type { Module, ModuleType } from "@/types";
 import { buildGatewayDeviceIds, buildGatewayStatusPaths } from "@/lib/gatewayDevicePaths";
+import { barToPsi, psiToBar } from "@/lib/pumpPressure";
 
 const DEFAULT_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 // Garde-fou UX: évite les faux "hors ligne" si le heartbeat LoRa est plus lent
@@ -56,6 +57,19 @@ function parseHeartbeatCounter(raw: unknown): number | null {
     return Number.isFinite(n) && n >= 0 ? n : null;
   }
   return null;
+}
+
+function readPumpPressurePsiFromStatusCache(
+  cache: Record<string, Record<string, unknown> | null>
+): number | undefined {
+  for (const st of Object.values(cache)) {
+    if (!st) continue;
+    const psi = st.pressurePsi;
+    if (typeof psi === "number" && Number.isFinite(psi)) return psi;
+    const bar = st.pressure;
+    if (typeof bar === "number" && Number.isFinite(bar)) return barToPsi(bar);
+  }
+  return undefined;
 }
 
 function parseModule(
@@ -130,6 +144,9 @@ export function useModules(
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(!!userId);
   const [gatewayLastSeenByModuleId, setGatewayLastSeenByModuleId] = useState<Record<string, number>>({});
+  const [pumpPressurePsiByModuleId, setPumpPressurePsiByModuleId] = useState<
+    Record<string, number | undefined>
+  >({});
   const gatewayHeartbeatByModuleIdRef = useRef<Record<string, number>>({});
   const statusCacheByModuleRef = useRef<Record<string, Record<string, Record<string, unknown> | null>>>({});
   const [nowTick, setNowTick] = useState(Date.now());
@@ -193,6 +210,13 @@ export function useModules(
       const next: Record<string, number> = {};
       for (const [id, ts] of Object.entries(prev)) {
         if (trackedIds.has(id)) next[id] = ts;
+      }
+      return next;
+    });
+    setPumpPressurePsiByModuleId((prev) => {
+      const next: Record<string, number | undefined> = {};
+      for (const id of trackedIds) {
+        if (id in prev) next[id] = prev[id];
       }
       return next;
     });
@@ -273,6 +297,15 @@ export function useModules(
             statusCache[path] = snap.exists() ? (snap.val() as Record<string, unknown>) : null;
             statusCacheByModuleRef.current[m.id] = statusCache;
             recomputeModuleLastSeen();
+            if (m.type === "pump") {
+              const psi = readPumpPressurePsiFromStatusCache(
+                statusCacheByModuleRef.current[m.id] ?? {}
+              );
+              setPumpPressurePsiByModuleId((prev) => {
+                if (prev[m.id] === psi) return prev;
+                return { ...prev, [m.id]: psi };
+              });
+            }
           },
           (err: unknown) => {
             const msg = err instanceof Error ? err.message : String(err);
@@ -367,6 +400,7 @@ export function useModules(
           | "battery"
           | "online"
           | "pressure"
+          | "pressurePsi"
           | "position"
           | "name"
           | "lastSeen"
@@ -393,7 +427,7 @@ export function useModules(
     [userId]
   );
 
-  return { modules: modulesWithOnline, loading, addModule, removeModule, updateModule };
+  return { modules: modulesWithPumpPressure, loading, addModule, removeModule, updateModule };
 }
 
 export function useModuleStatus(

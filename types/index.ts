@@ -16,7 +16,10 @@ export interface Module {
   battery?: number;
   online: boolean;
   position?: Position;
+  /** Pression en bar (dérivée du capteur PSI passerelle ou champ utilisateur legacy). */
   pressure?: number;
+  /** Pression brute capteur pompe (PSI), depuis gateways/.../status/pressurePsi. */
+  pressurePsi?: number;
   name?: string;
   /** ID d'usine (4 octets MAC en hex, 8 caractères) pour Champ/Pompe. Déprécié au profit de deviceId. */
   factoryId?: string;

@@ -5,6 +5,7 @@ import { Fragment, useEffect, useState } from "react";
 import type { DivIcon } from "leaflet";
 import type { Zone } from "@/types";
 import type { Module } from "@/types";
+import { formatModulePumpPressure } from "@/lib/pumpPressure";
 import { buildPumpSplitMarkerHtml, useMapIcons } from "./MapIcons";
 
 const PUMP_MARKER_SIZE = 22;
@@ -331,6 +332,8 @@ export function MapView({
                   <br />
                   Pompe {st?.pumpOn ? "(en marche)" : "(arret)"} - Vanne A {a ? "ON" : "OFF"} / Vanne B{" "}
                   {b ? "ON" : "OFF"}
+                  <br />
+                  Pression : {formatModulePumpPressure(m)}
                 </Popup>
               </Marker>
             );

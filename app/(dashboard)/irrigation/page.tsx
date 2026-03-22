@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Zone, ValveSlot } from "@/types";
 import { resolveGatewaySendCommandOpts } from "@/lib/gatewayDevicePaths";
+import { formatModulePumpPressure } from "@/lib/pumpPressure";
 
 const DEFAULT_LAT = 46.6;
 const DEFAULT_LNG = 1.9;
@@ -596,6 +597,15 @@ function IrrigationPageContent() {
                       ))}
                     </select>
                   </div>
+                  {(() => {
+                    const pid = getPrimaryPumpId(selectedZone);
+                    const pm = pid ? modulesWithGatewayStatus.find((m) => m.id === pid) : null;
+                    return (
+                      <p className="text-xs text-muted-foreground">
+                        Pression ligne : {pm ? formatModulePumpPressure(pm) : "—"}
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -635,8 +645,11 @@ function IrrigationPageContent() {
                     !!pendingCommand &&
                     pendingCommand.moduleId === pumpId &&
                     pendingCommand.status === "pending";
+                  const pumpMod = pumpId
+                    ? modulesWithGatewayStatus.find((m) => m.id === pumpId)
+                    : undefined;
                   const linkedLabel = pumpId
-                    ? `${modulesWithGatewayStatus.find((m) => m.id === pumpId)?.name || pumpId}${
+                    ? `${pumpMod?.name || pumpId}${
                         slot
                           ? slot === "AB"
                             ? " (Vannes A et B)"
@@ -647,6 +660,11 @@ function IrrigationPageContent() {
                   return (
                     <div className="mt-2 space-y-3">
                       <p className="text-sm text-muted-foreground">Lié à : {linkedLabel}</p>
+                      {pumpMod ? (
+                        <p className="text-sm font-medium text-foreground">
+                          Pression : {formatModulePumpPressure(pumpMod)}
+                        </p>
+                      ) : null}
                       <Button
                         className="w-full"
                         size="lg"
@@ -721,25 +739,30 @@ function IrrigationPageContent() {
               {zoneRows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Aucune zone pour le moment.</p>
               ) : (
-                zoneRows.map((row) => (
-                  <button
-                    key={row.zone.id}
-                    type="button"
-                    onClick={() => setSelectedZoneId(row.zone.id)}
-                    className="w-full rounded-lg border p-3 text-left hover:bg-slate-50"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium">{row.zone.name}</p>
-                      <span className={`text-xs ${row.running ? "text-indigo-700" : "text-slate-500"}`}>
-                        {row.running ? "En cours" : "À l'arrêt"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Tension {row.tension != null ? `${Math.round(row.tension)} cb` : "—"} · Humidité{" "}
-                      {row.humidity != null ? `${Math.round(row.humidity)}%` : "—"}
-                    </p>
-                  </button>
-                ))
+                zoneRows.map((row) => {
+                  const pid = getPrimaryPumpId(row.zone);
+                  const pmod = pid ? modulesWithGatewayStatus.find((m) => m.id === pid) : null;
+                  return (
+                    <button
+                      key={row.zone.id}
+                      type="button"
+                      onClick={() => setSelectedZoneId(row.zone.id)}
+                      className="w-full rounded-lg border p-3 text-left hover:bg-slate-50"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium">{row.zone.name}</p>
+                        <span className={`text-xs ${row.running ? "text-indigo-700" : "text-slate-500"}`}>
+                          {row.running ? "En cours" : "À l'arrêt"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Tension {row.tension != null ? `${Math.round(row.tension)} cb` : "—"} · Humidité{" "}
+                        {row.humidity != null ? `${Math.round(row.humidity)}%` : "—"}
+                        {pmod ? ` · ${formatModulePumpPressure(pmod)}` : ""}
+                      </p>
+                    </button>
+                  );
+                })
               )}
             </div>
           )}
