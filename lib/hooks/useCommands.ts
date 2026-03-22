@@ -66,7 +66,7 @@ export function useSendCommand(userId: string | undefined) {
             id: commandId,
             status: "pending",
             createdAt: Date.now(),
-            valveSlot,
+            ...(valveSlot !== undefined ? { valveSlot } : {}),
           });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
