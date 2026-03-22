@@ -67,6 +67,13 @@ function getZoneCenter(zone: { polygon?: { coordinates?: number[][][] } }): { la
   return { lat, lng };
 }
 
+interface LowBatteryMaintenanceItem {
+  id: string;
+  name: string;
+  battery: number;
+  lastSeenLabel: string;
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const { config: alertConfig } = useAlertConfig(user?.uid);
@@ -301,14 +308,8 @@ export default function DashboardPage() {
                   };
                 })
                 .filter(
-                  (
-                    item
-                  ): item is {
-                    id: string;
-                    name: string;
-                    battery: number;
-                    lastSeenLabel: string;
-                  } => item != null
+                  (item: LowBatteryMaintenanceItem | null): item is LowBatteryMaintenanceItem =>
+                    item != null
                 )}
             />
           </div>
