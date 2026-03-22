@@ -348,6 +348,71 @@ function IrrigationPageContent() {
     [sendForPump, durationMin]
   );
 
+  /** Ouvre uniquement les vannes de la zone (pas de PUMP_ON). */
+  const openValvesOnlyZone = useCallback(
+    async (zone: Zone) => {
+      const pumpId = getPrimaryPumpId(zone);
+      const slot = getValveSlot(zone);
+      if (!pumpId) {
+        setNotice("Associez une pompe à cette zone.");
+        return;
+      }
+      try {
+        if (slot === "A" || slot === "AB") {
+          const ra = await sendForPump(pumpId, "VALVE_A_OPEN");
+          if (ra === "failed" || ra === "timeout") {
+            setNotice(
+              ra === "timeout" ? "Pas de confirmation vanne A." : "Échec ouverture vanne A."
+            );
+            return;
+          }
+        }
+        if (slot === "B" || slot === "AB") {
+          const rb = await sendForPump(pumpId, "VALVE_B_OPEN");
+          if (rb === "failed" || rb === "timeout") {
+            setNotice(
+              rb === "timeout" ? "Pas de confirmation vanne B." : "Échec ouverture vanne B."
+            );
+            return;
+          }
+        }
+        if (!slot) {
+          const r = await sendForPump(pumpId, "VALVE_OPEN");
+          if (r === "failed" || r === "timeout") {
+            setNotice(
+              r === "timeout" ? "Pas de confirmation des vannes." : "Échec ouverture des vannes."
+            );
+            return;
+          }
+        }
+        setNotice("Vannes ouvertes (pompe inchangée).");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setNotice(msg);
+      }
+    },
+    [sendForPump]
+  );
+
+  /** Ferme uniquement les vannes (pas de PUMP_OFF). */
+  const closeValvesOnlyZone = useCallback(
+    async (zone: Zone) => {
+      const pumpId = getPrimaryPumpId(zone);
+      const slot = getValveSlot(zone);
+      if (!pumpId) return;
+      try {
+        if (slot === "A" || slot === "AB") await sendForPump(pumpId, "VALVE_A_CLOSE");
+        if (slot === "B" || slot === "AB") await sendForPump(pumpId, "VALVE_B_CLOSE");
+        if (!slot) await sendForPump(pumpId, "VALVE_CLOSE");
+        setNotice("Vannes fermées (pompe inchangée).");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setNotice(msg);
+      }
+    },
+    [sendForPump]
+  );
+
   const stopZone = useCallback(
     async (zone: Zone) => {
       const pumpId = getPrimaryPumpId(zone);
@@ -665,6 +730,10 @@ function IrrigationPageContent() {
                           Pression : {formatModulePumpPressure(pumpMod)}
                         </p>
                       ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        Démarrer allume la pompe puis ouvre les vannes. Les boutons ci-dessous ne
+                        commandent que les vannes.
+                      </p>
                       <Button
                         className="w-full"
                         size="lg"
@@ -676,6 +745,24 @@ function IrrigationPageContent() {
                       >
                         {pending ? "Envoi…" : running ? "STOPPER" : "DÉMARRER"}
                       </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!pumpId || pending}
+                          onClick={() => void openValvesOnlyZone(selectedZone)}
+                        >
+                          Vannes ouvertes
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!pumpId || pending}
+                          onClick={() => void closeValvesOnlyZone(selectedZone)}
+                        >
+                          Vannes fermées
+                        </Button>
+                      </div>
                       <div className="flex gap-2">
                         <Button
                           size="sm"

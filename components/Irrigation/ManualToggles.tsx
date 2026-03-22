@@ -150,6 +150,9 @@ export function ManualToggles({
           />
         </Switch.Root>
       </div>
+      <p className="text-xs text-muted-foreground px-0.5">
+        Les vannes A / B peuvent être actionnées sans allumer la pompe.
+      </p>
       <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-md border border-border px-3 py-2.5">
         <Label
           htmlFor="valveA"
