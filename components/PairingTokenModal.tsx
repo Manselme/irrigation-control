@@ -63,8 +63,8 @@ export function PairingTokenModal({
           <DialogTitle>Token d&apos;appairage</DialogTitle>
           <DialogDescription>
             {moduleName
-              ? `Générez un token pour le module Mère « ${moduleName} ». Entrez ce token dans le portail WiFi AgriFlow-Setup. Valide environ 15 minutes.`
-              : "Générez un token à entrer dans le portail du Module Mère (WiFi AgriFlow-Setup). Valide environ 15 minutes."}
+              ? `Générez un token pour le module Mère « ${moduleName} ». Entrez ce token dans le portail WiFi CeresAnalytics-Setup. Valide environ 15 minutes.`
+              : "Générez un token à entrer dans le portail du Module Mère (WiFi CeresAnalytics-Setup). Valide environ 15 minutes."}
           </DialogDescription>
         </DialogHeader>
         {!token ? (
@@ -87,7 +87,7 @@ export function PairingTokenModal({
               Copier le token
             </Button>
             <p className="text-xs text-muted-foreground">
-              Connectez-vous au WiFi « AgriFlow-Setup », ouvrez la page de configuration et collez ce token.
+              Connectez-vous au WiFi « CeresAnalytics-Setup », ouvrez la page de configuration et collez ce token.
             </p>
           </div>
         )}

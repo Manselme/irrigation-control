@@ -2,7 +2,7 @@
  * API d'échange token d'appairage → custom token Firebase.
  * Utilisée par le Module Mère (ESP32) pour s'authentifier sans email/mot de passe.
  *
- * Déprécié (AgriFlow V2) : en architecture Plug & Play, la Mère n'utilise plus l'auth
+ * Déprécié (CeresAnalytics V2) : en architecture Plug & Play, la Mère n'utilise plus l'auth
  * et écrit directement dans gateways/MERE-{MAC}. Cette route reste disponible pour
  * d'éventuels modules Mère encore en V1.
  *

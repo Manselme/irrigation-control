@@ -1,6 +1,6 @@
 /**
  * Export CSV côté client des données d'historique de zone (même agrégat que les graphiques).
- * Nom du fichier : AgriFlow_Export_[NomZone]_[DateDebut]-[DateFin].csv
+ * Nom du fichier : CeresAnalytics_Export_[NomZone]_[DateDebut]-[DateFin].csv
  */
 
 export interface ZoneHistoryExportRow {
@@ -47,7 +47,7 @@ export function downloadZoneHistoryCsv(
 ): void {
   const csv = buildZoneHistoryCsv(rows);
   const safeName = zoneName.replace(/[^a-zA-Z0-9_\-\s]/g, "_").replace(/\s+/g, "_") || "Zone";
-  const filename = `AgriFlow_Export_${safeName}_${dateStart}-${dateEnd}.csv`;
+  const filename = `CeresAnalytics_Export_${safeName}_${dateStart}-${dateEnd}.csv`;
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

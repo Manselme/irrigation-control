@@ -72,7 +72,7 @@ export function Sidebar() {
         <Button variant="ghost" size="icon" onClick={() => setMobileOpen((v) => !v)}>
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
-        <p className="ml-2 text-sm font-semibold">AgriFlow</p>
+        <p className="ml-2 text-sm font-semibold">CeresAnalytics</p>
       </div>
 
       <aside
@@ -82,7 +82,7 @@ export function Sidebar() {
         )}
       >
         <div className="mb-4 border-b pb-3">
-          <p className="text-base font-semibold text-slate-900">AgriFlow</p>
+          <p className="text-base font-semibold text-slate-900">CeresAnalytics</p>
           <p className="truncate text-xs text-slate-500">{user?.email}</p>
         </div>
 

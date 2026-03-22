@@ -36,7 +36,7 @@ export interface Module {
   };
 }
 
-/** Passerelle liée au compte (AgriFlow V2). */
+/** Passerelle liée au compte (CeresAnalytics V2). */
 export interface LinkedGateway {
   gatewayId: string;
   farmId: string;

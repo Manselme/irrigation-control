@@ -12,7 +12,7 @@ Si **`gateways`** ou **`gateways/MERE-xxx`** n’existe pas, la Mère n’écrit
 
 ## 2. Checklist côté Mère (firmware)
 
-- **WiFi** : la Mère doit être configurée via le portail (AP AgriFlow-Setup, http://192.168.4.1). Sur l’écran ou en Serial (115200 baud) vous devez voir « WiFi OK » puis « Firebase OK ».
+- **WiFi** : la Mère doit être configurée via le portail (AP CeresAnalytics-Setup, http://192.168.4.1). Sur l’écran ou en Serial (115200 baud) vous devez voir « WiFi OK » puis « Firebase OK ».
 - **Auth anonyme** : la Mère utilise la connexion **anonyme**. Dans Firebase Console → **Authentication** → **Sign-in method** → **Anonymous** → **Activer**. Sans cela, « Firebase FAIL » ou erreur d’auth s’affiche.
 - **Même base que le site** : dans `firmware_mere/include/config.h`, `FIREBASE_DATABASE_URL` doit être **exactement** la même URL que `NEXT_PUBLIC_FIREBASE_DATABASE_URL` du site (ex. `https://votre-projet-default-rtdb.europe-west1.firebasedatabase.app`).
 

@@ -34,7 +34,7 @@ Pour que le Module Mère puisse s'authentifier sans plan Blaze Firebase, l'écha
 
    (Remplace `IP_DE_TON_PC` par l’IP de ta machine sur le réseau, par ex. `192.168.1.10`.)
 
-3. Génère un token d’appairage sur le site (Matériel → Module Mère → icône clé), connecte le Module Mère au WiFi AgriFlow-Setup et entre ce token. L’ESP32 appellera ton PC en local.
+3. Génère un token d’appairage sur le site (Matériel → Module Mère → icône clé), connecte le Module Mère au WiFi CeresAnalytics-Setup et entre ce token. L’ESP32 appellera ton PC en local.
 
 ## 4. Déployer le site (Vercel, Netlify, etc.)
 
