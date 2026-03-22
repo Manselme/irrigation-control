@@ -290,7 +290,7 @@ function IrrigationPageContent() {
     ) => {
       const mod = modulesWithGatewayStatus.find((m) => m.id === moduleId);
       const opts = resolveGatewaySendCommandOpts(mod);
-      await sendCommand(moduleId, type, opts);
+      return sendCommand(moduleId, type, opts);
     },
     [modulesWithGatewayStatus, sendCommand]
   );
