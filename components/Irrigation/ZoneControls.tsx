@@ -15,6 +15,7 @@ import { useZoneHumidity } from "@/lib/hooks/useZoneHumidity";
 import { useLastCommandState } from "@/lib/hooks/useCommands";
 import { CloudRain, Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatModulePumpPressure } from "@/lib/pumpPressure";
 
 interface ZoneControlsProps {
   zone: Zone;
@@ -177,6 +178,11 @@ export function ZoneControls({
           >
             {linksSaving ? "Enregistrement…" : "Enregistrer affectation"}
           </Button>
+          {pumpModule ? (
+            <p className="text-xs text-muted-foreground">
+              Pression ligne : {formatModulePumpPressure(pumpModule)}
+            </p>
+          ) : null}
         </div>
 
         {zone.mode === "manual" && (

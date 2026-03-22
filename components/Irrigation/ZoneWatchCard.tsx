@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import type { Zone } from "@/types";
 import { Button } from "@/components/ui/button";
 import { useSensorHistory } from "@/lib/hooks/useSensorHistory";
+import { formatModulePumpPressure } from "@/lib/pumpPressure";
+import type { Module } from "@/types";
 
 type ZoneStatus = "irrigating" | "idle" | "alert";
 
@@ -55,6 +57,7 @@ export function ZoneWatchCard({
   onStartStop,
   isPumpRunning,
   hasPump,
+  pumpModule,
 }: ZoneWatchCardProps) {
   const firstFieldModuleId = zone.fieldModuleIds?.[0];
   const points = useSensorHistory(userId, firstFieldModuleId, 1);
@@ -112,6 +115,11 @@ export function ZoneWatchCard({
 
       <div className="mt-4 rounded-md border border-slate-200 p-3">
         <p className="text-xs font-medium text-slate-600">Pompe</p>
+        {pumpModule ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Pression : {formatModulePumpPressure(pumpModule)}
+          </p>
+        ) : null}
         <div className="mt-2 flex items-center justify-between gap-2">
           <Button
             size="sm"

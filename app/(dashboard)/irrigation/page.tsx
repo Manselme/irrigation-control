@@ -15,7 +15,9 @@ import { MapView } from "@/components/Map/MapView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Zone } from "@/types";
+import type { Zone, ValveSlot, Module, LinkedGateway } from "@/types";
+import { resolveGatewaySendCommandOpts } from "@/lib/gatewayDevicePaths";
+import { formatModulePumpPressure } from "@/lib/pumpPressure";
 
 const DEFAULT_LAT = 46.6;
 const DEFAULT_LNG = 1.9;
@@ -38,9 +40,16 @@ function getPrimaryPumpId(zone: Zone): string {
   return zone.pumpModuleId ?? zone.pumpModuleIds?.[0] ?? "";
 }
 
-function getValveSlot(zone: Zone): "A" | "B" | null {
-  const s = zone.sectors?.[0]?.valveSlot;
-  return s === "A" || s === "B" ? s : null;
+/** Choix d’irrigation pour la zone (aligné sur les secteurs après enregistrement). */
+function getValveSlot(zone: Zone): ValveSlot | null {
+  const ss = zone.sectors;
+  if (!ss?.length) return null;
+  const s0 = ss[0].valveSlot;
+  if (s0 === "A" || s0 === "B" || s0 === "AB") return s0;
+  const found = ss.find(
+    (s) => s.valveSlot === "A" || s.valveSlot === "B" || s.valveSlot === "AB"
+  );
+  return found?.valveSlot ?? null;
 }
 
 /** Clé unique pompe+vanne pour l'UI (ex. POMPE-xxx:A). */
@@ -51,18 +60,19 @@ function getZoneValveKey(zone: Zone): string {
   return `${p}:${sl}`;
 }
 
-function parseValveKey(valveKey: string): { pumpId: string; slot: "A" | "B" } | null {
-  const [pumpIdRaw, slotRaw] = valveKey.split(":");
-  const pumpId = (pumpIdRaw || "").trim();
-  if (!pumpId || (slotRaw !== "A" && slotRaw !== "B")) return null;
-  return { pumpId, slot: slotRaw };
+function parseValveKey(valveKey: string): { pumpId: string; slot: ValveSlot } | null {
+  const i = valveKey.lastIndexOf(":");
+  if (i <= 0) return null;
+  const pumpId = valveKey.slice(0, i).trim();
+  const slotRaw = valveKey.slice(i + 1).trim();
+  if (!pumpId || (slotRaw !== "A" && slotRaw !== "B" && slotRaw !== "AB")) return null;
+  return { pumpId, slot: slotRaw as ValveSlot };
 }
 
-function cloneSectorsWithValveSlot(zone: Zone, slot: "A" | "B"): NonNullable<Zone["sectors"]> {
+/** Applique le même couple pompe/vanne à tous les secteurs (évite A sur sect.1 et B sur sect.2). */
+function cloneSectorsWithValveSlot(zone: Zone, slot: ValveSlot): NonNullable<Zone["sectors"]> {
   if (zone.sectors?.length) {
-    return zone.sectors.map((s, i) =>
-      i === 0 ? { ...s, valveSlot: slot } : { ...s }
-    );
+    return zone.sectors.map((s) => ({ ...s, valveSlot: slot }));
   }
   return [
     {
@@ -76,13 +86,11 @@ function cloneSectorsWithValveSlot(zone: Zone, slot: "A" | "B"): NonNullable<Zon
 }
 
 function cloneSectorsWithoutValveSlot(zone: Zone): NonNullable<Zone["sectors"]> {
-  const list = (zone.sectors?.length ? zone.sectors : []).map((s) => ({ ...s }));
-  if (list[0]) {
-    const s0 = { ...list[0] };
-    delete (s0 as { valveSlot?: "A" | "B" }).valveSlot;
-    list[0] = s0;
-  }
-  return list;
+  return (zone.sectors?.length ? zone.sectors : []).map((s) => {
+    const next = { ...s };
+    delete (next as { valveSlot?: ValveSlot }).valveSlot;
+    return next;
+  });
 }
 
 /**
@@ -103,8 +111,18 @@ function isZoneActivelyIrrigating(
   const slot = getValveSlot(zone);
   if (slot === "A") return st.valveAOpen;
   if (slot === "B") return st.valveBOpen;
+  if (slot === "AB") return st.valveAOpen && st.valveBOpen;
   return st.valveOpen;
 }
+
+/** Ligne agrégée sol + irrigation pour une zone (liste triée stress). */
+type IrrigationZoneRow = {
+  zone: Zone;
+  tension?: number;
+  humidity?: number;
+  stress: number;
+  running: boolean;
+};
 
 function zoneStress(
   zone: Zone,
@@ -144,36 +162,36 @@ function IrrigationPageContent() {
   const [durationMin, setDurationMin] = useState(60);
   const [timedWatering, setTimedWatering] = useState<{
     pumpId: string;
-    slot: "A" | "B" | null;
+    slot: ValveSlot | null;
     endsAt: number;
   } | null>(null);
   const timedStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const modulesWithGatewayStatus = useMemo(
     () =>
-      modules.map((m) => ({
+      modules.map((m: Module) => ({
         ...m,
         online:
           m.type === "mother" && m.gatewayId != null
-            ? (gateways.find((g) => g.gatewayId === m.gatewayId)?.online ?? false)
+            ? (gateways.find((g: LinkedGateway) => g.gatewayId === m.gatewayId)?.online ?? false)
             : m.online,
       })),
     [modules, gateways]
   );
 
   const fieldModules = useMemo(
-    () => modulesWithGatewayStatus.filter((m) => m.type === "field"),
+    () => modulesWithGatewayStatus.filter((m: Module) => m.type === "field"),
     [modulesWithGatewayStatus]
   );
   const pumpModules = useMemo(
-    () => modulesWithGatewayStatus.filter((m) => m.type === "pump"),
+    () => modulesWithGatewayStatus.filter((m: Module) => m.type === "pump"),
     [modulesWithGatewayStatus]
   );
 
   const latestSensorByModule = useLatestSensorMap(user?.uid, fieldModules);
   const allPumpRefs = useMemo(
     () =>
-      pumpModules.map((p) => ({
+      pumpModules.map((p: Module) => ({
         moduleId: p.id,
         gatewayId: p.gatewayId,
         deviceId: p.deviceId,
@@ -184,33 +202,33 @@ function IrrigationPageContent() {
   );
   const pumpStates = useAllPumpStates(user?.uid, allPumpRefs);
 
-  const selectedZone = selectedZoneId ? zones.find((z) => z.id === selectedZoneId) ?? null : null;
+  const selectedZone = selectedZoneId ? zones.find((z: Zone) => z.id === selectedZoneId) ?? null : null;
 
   useEffect(() => {
     const z = searchParams.get("zone");
-    if (z && zones.some((x) => x.id === z)) setSelectedZoneId(z);
+    if (z && zones.some((x: Zone) => x.id === z)) setSelectedZoneId(z);
   }, [searchParams, zones]);
 
   useEffect(() => {
-    if (selectedZoneId && !zones.some((z) => z.id === selectedZoneId)) setSelectedZoneId(null);
+    if (selectedZoneId && !zones.some((z: Zone) => z.id === selectedZoneId)) setSelectedZoneId(null);
   }, [selectedZoneId, zones]);
 
   const thresholdCb = alertConfig?.stressTensionThreshold ?? 60;
   const zoneRows = useMemo(
     () =>
       zones
-        .map((zone) => {
+        .map((zone: Zone) => {
           const st = zoneStress(zone, latestSensorByModule, thresholdCb);
           const running = isZoneActivelyIrrigating(zone, pumpStates);
           return { zone, ...st, running };
         })
-        .sort((a, b) => b.stress - a.stress),
+        .sort((a: IrrigationZoneRow, b: IrrigationZoneRow) => b.stress - a.stress),
     [zones, latestSensorByModule, thresholdCb, pumpStates]
   );
 
   const zoneMapStyles = useMemo(() => {
     const styles: Record<string, { color: string; fillColor: string; fillOpacity: number; weight: number }> = {};
-    zoneRows.forEach((r) => {
+    zoneRows.forEach((r: IrrigationZoneRow) => {
       if (r.stress >= 70) styles[r.zone.id] = { color: "#b91c1c", fillColor: "#f87171", fillOpacity: 0.35, weight: 2 };
       else if (r.stress >= 40)
         styles[r.zone.id] = { color: "#b45309", fillColor: "#fbbf24", fillOpacity: 0.28, weight: 2 };
@@ -221,32 +239,32 @@ function IrrigationPageContent() {
 
   const pumpValveFillByModuleId = useMemo(() => {
     const acc: Record<string, { A?: string; B?: string }> = {};
-    zoneRows.forEach((r) => {
+    zoneRows.forEach((r: IrrigationZoneRow) => {
       const pumpId = getPrimaryPumpId(r.zone);
       const slot = getValveSlot(r.zone);
       if (!pumpId || !slot) return;
       const fill = zoneMapStyles[r.zone.id]?.fillColor;
       if (!fill) return;
       acc[pumpId] = acc[pumpId] ?? {};
-      if (slot === "A") acc[pumpId].A = fill;
-      else acc[pumpId].B = fill;
+      if (slot === "A" || slot === "AB") acc[pumpId].A = fill;
+      if (slot === "B" || slot === "AB") acc[pumpId].B = fill;
     });
     return acc;
   }, [zoneRows, zoneMapStyles]);
 
   const assignedSensorIds = useMemo(
-    () => new Set(zones.map((z) => getZoneSensorId(z)).filter(Boolean)),
+    () => new Set(zones.map((z: Zone) => getZoneSensorId(z)).filter(Boolean)),
     [zones]
   );
 
   const assignedValveKeys = useMemo(
-    () => new Set(zones.map((z) => getZoneValveKey(z)).filter(Boolean)),
+    () => new Set(zones.map((z: Zone) => getZoneValveKey(z)).filter(Boolean)),
     [zones]
   );
 
   const freeSensors = useMemo(
     () =>
-      fieldModules.filter((m) => {
+      fieldModules.filter((m: Module) => {
         if (selectedZone && getZoneSensorId(selectedZone) === m.id) return true;
         return !assignedSensorIds.has(m.id);
       }),
@@ -255,15 +273,19 @@ function IrrigationPageContent() {
 
   const valveOptions = useMemo(() => {
     const opts: Array<{ id: string; label: string; pumpId: string }> = [];
-    pumpModules.forEach((pump) => {
-      (["A", "B"] as const).forEach((slot) => {
+    pumpModules.forEach((pump: Module) => {
+      (["A", "B", "AB"] as const).forEach((slot) => {
         const id = `${pump.id}:${slot}`;
+        const label =
+          slot === "AB"
+            ? `${pump.name || pump.id} (Vannes A et B)`
+            : `${pump.name || pump.id} (Vanne ${slot})`;
         if (selectedZone && getZoneValveKey(selectedZone) === id) {
-          opts.push({ id, label: `${pump.name || pump.id} (Vanne ${slot})`, pumpId: pump.id });
+          opts.push({ id, label, pumpId: pump.id });
           return;
         }
         if (!assignedValveKeys.has(id)) {
-          opts.push({ id, label: `${pump.name || pump.id} (Vanne ${slot})`, pumpId: pump.id });
+          opts.push({ id, label, pumpId: pump.id });
         }
       });
     });
@@ -272,7 +294,7 @@ function IrrigationPageContent() {
 
   const { sendCommand, pendingCommand } = useSendCommand(user?.uid);
   const sendForPump = useCallback(
-    (
+    async (
       moduleId: string,
       type:
         | "VALVE_OPEN"
@@ -284,45 +306,138 @@ function IrrigationPageContent() {
         | "PUMP_ON"
         | "PUMP_OFF"
     ) => {
-      const mod = modulesWithGatewayStatus.find((m) => m.id === moduleId);
-      const opts =
-        mod?.gatewayId && mod?.deviceId ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId } : undefined;
-      sendCommand(moduleId, type, opts);
+      const mod = modulesWithGatewayStatus.find((m: Module) => m.id === moduleId);
+      const opts = resolveGatewaySendCommandOpts(mod);
+      return sendCommand(moduleId, type, opts);
     },
     [modulesWithGatewayStatus, sendCommand]
   );
 
   const startZone = useCallback(
-    (zone: Zone) => {
+    async (zone: Zone) => {
       const pumpId = getPrimaryPumpId(zone);
       const slot = getValveSlot(zone);
       if (!pumpId || !slot) {
-        setNotice("Associez une pompe et une vanne (A ou B) à cette zone.");
+        setNotice("Associez une pompe et une vanne (A, B ou A+B) à cette zone.");
         return;
       }
-      sendForPump(pumpId, "PUMP_ON");
-      if (slot === "A") sendForPump(pumpId, "VALVE_A_OPEN");
-      else sendForPump(pumpId, "VALVE_B_OPEN");
-
-      if (durationMin > 0) {
-        setTimedWatering({ pumpId, slot, endsAt: Date.now() + durationMin * 60 * 1000 });
-      } else setTimedWatering(null);
-      setNotice("Irrigation démarrée.");
+      try {
+        const r1 = await sendForPump(pumpId, "PUMP_ON");
+        if (r1 === "failed" || r1 === "timeout") {
+          setNotice(
+            r1 === "timeout"
+              ? "Pas de confirmation pompe (délai). Vérifiez la passerelle."
+              : "Échec commande pompe."
+          );
+          return;
+        }
+        if (slot === "A" || slot === "AB") {
+          const ra = await sendForPump(pumpId, "VALVE_A_OPEN");
+          if (ra === "failed" || ra === "timeout") {
+            setNotice(ra === "timeout" ? "Pompe OK, mais pas de confirmation vanne A." : "Échec vanne A.");
+            return;
+          }
+        }
+        if (slot === "B" || slot === "AB") {
+          const rb = await sendForPump(pumpId, "VALVE_B_OPEN");
+          if (rb === "failed" || rb === "timeout") {
+            setNotice(rb === "timeout" ? "Pompe OK, mais pas de confirmation vanne B." : "Échec vanne B.");
+            return;
+          }
+        }
+        if (durationMin > 0) {
+          setTimedWatering({ pumpId, slot, endsAt: Date.now() + durationMin * 60 * 1000 });
+        } else setTimedWatering(null);
+        setNotice("Irrigation démarrée.");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setNotice(msg);
+      }
     },
     [sendForPump, durationMin]
   );
 
-  const stopZone = useCallback(
-    (zone: Zone) => {
+  /** Ouvre uniquement les vannes de la zone (pas de PUMP_ON). */
+  const openValvesOnlyZone = useCallback(
+    async (zone: Zone) => {
+      const pumpId = getPrimaryPumpId(zone);
+      const slot = getValveSlot(zone);
+      if (!pumpId) {
+        setNotice("Associez une pompe à cette zone.");
+        return;
+      }
+      try {
+        if (slot === "A" || slot === "AB") {
+          const ra = await sendForPump(pumpId, "VALVE_A_OPEN");
+          if (ra === "failed" || ra === "timeout") {
+            setNotice(
+              ra === "timeout" ? "Pas de confirmation vanne A." : "Échec ouverture vanne A."
+            );
+            return;
+          }
+        }
+        if (slot === "B" || slot === "AB") {
+          const rb = await sendForPump(pumpId, "VALVE_B_OPEN");
+          if (rb === "failed" || rb === "timeout") {
+            setNotice(
+              rb === "timeout" ? "Pas de confirmation vanne B." : "Échec ouverture vanne B."
+            );
+            return;
+          }
+        }
+        if (!slot) {
+          const r = await sendForPump(pumpId, "VALVE_OPEN");
+          if (r === "failed" || r === "timeout") {
+            setNotice(
+              r === "timeout" ? "Pas de confirmation des vannes." : "Échec ouverture des vannes."
+            );
+            return;
+          }
+        }
+        setNotice("Vannes ouvertes (pompe inchangée).");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setNotice(msg);
+      }
+    },
+    [sendForPump]
+  );
+
+  /** Ferme uniquement les vannes (pas de PUMP_OFF). */
+  const closeValvesOnlyZone = useCallback(
+    async (zone: Zone) => {
       const pumpId = getPrimaryPumpId(zone);
       const slot = getValveSlot(zone);
       if (!pumpId) return;
-      if (slot === "A") sendForPump(pumpId, "VALVE_A_CLOSE");
-      else if (slot === "B") sendForPump(pumpId, "VALVE_B_CLOSE");
-      else sendForPump(pumpId, "VALVE_CLOSE");
-      sendForPump(pumpId, "PUMP_OFF");
-      setTimedWatering(null);
-      setNotice("Irrigation stoppée.");
+      try {
+        if (slot === "A" || slot === "AB") await sendForPump(pumpId, "VALVE_A_CLOSE");
+        if (slot === "B" || slot === "AB") await sendForPump(pumpId, "VALVE_B_CLOSE");
+        if (!slot) await sendForPump(pumpId, "VALVE_CLOSE");
+        setNotice("Vannes fermées (pompe inchangée).");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setNotice(msg);
+      }
+    },
+    [sendForPump]
+  );
+
+  const stopZone = useCallback(
+    async (zone: Zone) => {
+      const pumpId = getPrimaryPumpId(zone);
+      const slot = getValveSlot(zone);
+      if (!pumpId) return;
+      try {
+        if (slot === "A" || slot === "AB") await sendForPump(pumpId, "VALVE_A_CLOSE");
+        if (slot === "B" || slot === "AB") await sendForPump(pumpId, "VALVE_B_CLOSE");
+        if (!slot) await sendForPump(pumpId, "VALVE_CLOSE");
+        await sendForPump(pumpId, "PUMP_OFF");
+        setTimedWatering(null);
+        setNotice("Irrigation stoppée.");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setNotice(msg);
+      }
     },
     [sendForPump]
   );
@@ -334,14 +449,17 @@ function IrrigationPageContent() {
     }
     if (!timedWatering) return;
     const delay = Math.max(0, timedWatering.endsAt - Date.now());
+    const tw = timedWatering;
     timedStopRef.current = setTimeout(() => {
-      const { pumpId, slot } = timedWatering;
-      sendForPump(pumpId, "PUMP_OFF");
-      if (slot === "A") sendForPump(pumpId, "VALVE_A_CLOSE");
-      else if (slot === "B") sendForPump(pumpId, "VALVE_B_CLOSE");
-      else sendForPump(pumpId, "VALVE_CLOSE");
-      setTimedWatering(null);
-      setNotice("Durée écoulée: irrigation arrêtée.");
+      void (async () => {
+        const { pumpId, slot } = tw;
+        if (slot === "A" || slot === "AB") await sendForPump(pumpId, "VALVE_A_CLOSE");
+        if (slot === "B" || slot === "AB") await sendForPump(pumpId, "VALVE_B_CLOSE");
+        if (!slot) await sendForPump(pumpId, "VALVE_CLOSE");
+        await sendForPump(pumpId, "PUMP_OFF");
+        setTimedWatering(null);
+        setNotice("Durée écoulée: irrigation arrêtée.");
+      })();
     }, delay);
     return () => {
       if (timedStopRef.current) clearTimeout(timedStopRef.current);
@@ -503,7 +621,7 @@ function IrrigationPageContent() {
                       }}
                     >
                       <option value="">Aucun capteur</option>
-                      {freeSensors.map((m) => (
+                      {freeSensors.map((m: Module) => (
                         <option key={m.id} value={m.id}>
                           {m.name || m.id}
                         </option>
@@ -553,15 +671,24 @@ function IrrigationPageContent() {
                       ))}
                     </select>
                   </div>
+                  {(() => {
+                    const pid = getPrimaryPumpId(selectedZone);
+                    const pm = pid ? modulesWithGatewayStatus.find((m: Module) => m.id === pid) : null;
+                    return (
+                      <p className="text-xs text-muted-foreground">
+                        Pression ligne : {pm ? formatModulePumpPressure(pm) : "—"}
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
 
               <div className="rounded-lg border p-3">
                 <p className="text-sm font-medium">Santé du sol</p>
                 {(() => {
-                  const row = zoneRows.find((r) => r.zone.id === selectedZone.id);
+                  const row = zoneRows.find((r: IrrigationZoneRow) => r.zone.id === selectedZone.id);
                   const battery = getZoneSensorId(selectedZone)
-                    ? modulesWithGatewayStatus.find((m) => m.id === getZoneSensorId(selectedZone))?.battery
+                    ? modulesWithGatewayStatus.find((m: Module) => m.id === getZoneSensorId(selectedZone))?.battery
                     : undefined;
                   const stress = row?.stress ?? 0;
                   const barClass =
@@ -592,21 +719,59 @@ function IrrigationPageContent() {
                     !!pendingCommand &&
                     pendingCommand.moduleId === pumpId &&
                     pendingCommand.status === "pending";
+                  const pumpMod = pumpId
+                    ? modulesWithGatewayStatus.find((m: Module) => m.id === pumpId)
+                    : undefined;
                   const linkedLabel = pumpId
-                    ? `${modulesWithGatewayStatus.find((m) => m.id === pumpId)?.name || pumpId}${slot ? ` (Vanne ${slot})` : ""}`
+                    ? `${pumpMod?.name || pumpId}${
+                        slot
+                          ? slot === "AB"
+                            ? " (Vannes A et B)"
+                            : ` (Vanne ${slot})`
+                          : ""
+                      }`
                     : "Aucune";
                   return (
                     <div className="mt-2 space-y-3">
                       <p className="text-sm text-muted-foreground">Lié à : {linkedLabel}</p>
+                      {pumpMod ? (
+                        <p className="text-sm font-medium text-foreground">
+                          Pression : {formatModulePumpPressure(pumpMod)}
+                        </p>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        Démarrer allume la pompe puis ouvre les vannes. Les boutons ci-dessous ne
+                        commandent que les vannes.
+                      </p>
                       <Button
                         className="w-full"
                         size="lg"
                         variant={running ? "destructive" : "default"}
                         disabled={!pumpId || !slot || pending}
-                        onClick={() => (running ? stopZone(selectedZone) : startZone(selectedZone))}
+                        onClick={() => {
+                          void (running ? stopZone(selectedZone) : startZone(selectedZone));
+                        }}
                       >
                         {pending ? "Envoi…" : running ? "STOPPER" : "DÉMARRER"}
                       </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!pumpId || pending}
+                          onClick={() => void openValvesOnlyZone(selectedZone)}
+                        >
+                          Vannes ouvertes
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!pumpId || pending}
+                          onClick={() => void closeValvesOnlyZone(selectedZone)}
+                        >
+                          Vannes fermées
+                        </Button>
+                      </div>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -670,25 +835,30 @@ function IrrigationPageContent() {
               {zoneRows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Aucune zone pour le moment.</p>
               ) : (
-                zoneRows.map((row) => (
-                  <button
-                    key={row.zone.id}
-                    type="button"
-                    onClick={() => setSelectedZoneId(row.zone.id)}
-                    className="w-full rounded-lg border p-3 text-left hover:bg-slate-50"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium">{row.zone.name}</p>
-                      <span className={`text-xs ${row.running ? "text-indigo-700" : "text-slate-500"}`}>
-                        {row.running ? "En cours" : "À l'arrêt"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Tension {row.tension != null ? `${Math.round(row.tension)} cb` : "—"} · Humidité{" "}
-                      {row.humidity != null ? `${Math.round(row.humidity)}%` : "—"}
-                    </p>
-                  </button>
-                ))
+                zoneRows.map((row: IrrigationZoneRow) => {
+                  const pid = getPrimaryPumpId(row.zone);
+                  const pmod = pid ? modulesWithGatewayStatus.find((m: Module) => m.id === pid) : null;
+                  return (
+                    <button
+                      key={row.zone.id}
+                      type="button"
+                      onClick={() => setSelectedZoneId(row.zone.id)}
+                      className="w-full rounded-lg border p-3 text-left hover:bg-slate-50"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium">{row.zone.name}</p>
+                        <span className={`text-xs ${row.running ? "text-indigo-700" : "text-slate-500"}`}>
+                          {row.running ? "En cours" : "À l'arrêt"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Tension {row.tension != null ? `${Math.round(row.tension)} cb` : "—"} · Humidité{" "}
+                        {row.humidity != null ? `${Math.round(row.humidity)}%` : "—"}
+                        {pmod ? ` · ${formatModulePumpPressure(pmod)}` : ""}
+                      </p>
+                    </button>
+                  );
+                })
               )}
             </div>
           )}

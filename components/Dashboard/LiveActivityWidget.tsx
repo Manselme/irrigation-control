@@ -2,9 +2,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useAllPumpStates } from "@/lib/hooks/useAllPumpStates";
 import { useSendCommand } from "@/lib/hooks/useCommands";
 import type { Module } from "@/types";
+import { formatModulePumpPressure } from "@/lib/pumpPressure";
 import { Square } from "lucide-react";
 
 interface LiveActivityWidgetProps {
@@ -55,6 +55,9 @@ export function LiveActivityWidget({
                 <div>
                   <p className="font-medium text-sm">{m.name || `Pompe ${m.id.slice(0, 8)}`}</p>
                   <p className="text-xs text-muted-foreground">En marche</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {formatModulePumpPressure(m)}
+                  </p>
                 </div>
                 <Button
                   variant="outline"

@@ -8,6 +8,7 @@ import { useAlertConfig } from "@/lib/hooks/useAlerts";
 import { useZones } from "@/lib/hooks/useZones";
 import { MapView } from "@/components/Map/MapView";
 import { ZoneEditor } from "@/components/Map/ZoneEditor";
+import type { Farm, Module, Zone } from "@/types";
 
 export default function MapPage() {
   const { user } = useAuth();
@@ -27,7 +28,7 @@ export default function MapPage() {
   );
 
   useEffect(() => {
-    const ids = new Set(zones.map((z) => z.id));
+    const ids = new Set(zones.map((z: Zone) => z.id));
     if (drawingZoneId && !ids.has(drawingZoneId)) {
       setDrawingZoneId(null);
       setDraftLatLngs([]);
@@ -37,10 +38,10 @@ export default function MapPage() {
     }
   }, [zones, drawingZoneId, selectedZoneId]);
 
-  const fieldModules = modules.filter((m) => m.type === "field");
+  const fieldModules = modules.filter((m: Module) => m.type === "field");
 
   const handleStartDrawing = useCallback((zoneId: string) => {
-    const zone = zones.find((z) => z.id === zoneId);
+    const zone = zones.find((z: Zone) => z.id === zoneId);
     setDrawingZoneId(zoneId);
     if (zone?.polygon?.coordinates?.[0]?.length) {
       setDraftLatLngs(
@@ -106,7 +107,7 @@ export default function MapPage() {
             className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">Toutes les fermes</option>
-            {farms.map((f) => (
+            {farms.map((f: Farm) => (
               <option key={f.id} value={f.id}>
                 {f.name}
               </option>

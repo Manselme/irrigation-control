@@ -7,6 +7,7 @@ import { useFarms } from "@/lib/hooks/useFarms";
 import { useZones } from "@/lib/hooks/useZones";
 import { useModules } from "@/lib/hooks/useModules";
 import { ZoneHistoryDetail } from "@/components/Zones/ZoneHistoryDetail";
+import type { Module, Zone } from "@/types";
 
 export default function HistoryPage() {
   const { user } = useAuth();
@@ -36,10 +37,12 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (zones.length === 0) return;
-    if (zoneIdFromUrl && zones.some((z) => z.id === zoneIdFromUrl)) {
+    if (zoneIdFromUrl && zones.some((z: Zone) => z.id === zoneIdFromUrl)) {
       setSelectedZoneId(zoneIdFromUrl);
     } else {
-      setSelectedZoneId((prev) => (prev && zones.some((z) => z.id === prev)) ? prev : zones[0].id);
+      setSelectedZoneId((prev) =>
+        prev && zones.some((z: Zone) => z.id === prev) ? prev : zones[0].id
+      );
     }
   }, [zoneIdFromUrl, zones]);
 
@@ -50,7 +53,7 @@ export default function HistoryPage() {
   }, [selectedZoneId]);
 
   const selectedZone = useMemo(
-    () => (selectedZoneId ? zones.find((z) => z.id === selectedZoneId) : zones[0]),
+    () => (selectedZoneId ? zones.find((z: Zone) => z.id === selectedZoneId) : zones[0]),
     [zones, selectedZoneId]
   );
 
@@ -106,7 +109,7 @@ export default function HistoryPage() {
           zone={selectedZone}
           pumpModule={
             selectedZone.pumpModuleId
-              ? modules.find((m) => m.id === selectedZone.pumpModuleId) ?? null
+              ? modules.find((m: Module) => m.id === selectedZone.pumpModuleId) ?? null
               : null
           }
           showBackLink={false}

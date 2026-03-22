@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import type { Module } from "@/types";
+import type { LinkedGateway, Module } from "@/types";
 import { PumpHydraulicConfigSheet } from "@/components/Material/PumpHydraulicConfigSheet";
 
 type TabId = "all" | "gateway" | "pump" | "field";
@@ -41,7 +41,7 @@ export default function MaterialPage() {
   const [addingFarm, setAddingFarm] = useState(false);
 
   const rows = useMemo(() => {
-    const gatewayRows = gateways.map((g) => ({
+    const gatewayRows = gateways.map((g: LinkedGateway) => ({
       id: g.gatewayId,
       kind: "gateway" as const,
       icon: Radio,
@@ -51,7 +51,7 @@ export default function MaterialPage() {
       lastSeen: g.lastSeen,
       remove: () => removeGateway(g.gatewayId),
     }));
-    const moduleRows = modules.map((m) => ({
+    const moduleRows = modules.map((m: Module) => ({
       id: m.id,
       kind: m.type,
       module: m,
