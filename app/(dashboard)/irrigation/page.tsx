@@ -322,28 +322,32 @@ function IrrigationPageContent() {
         return;
       }
       try {
-        const r1 = await sendForPump(pumpId, "PUMP_ON");
-        if (r1 === "failed" || r1 === "timeout") {
-          setNotice(
-            r1 === "timeout"
-              ? "Pas de confirmation pompe (délai). Vérifiez la passerelle."
-              : "Échec commande pompe."
-          );
-          return;
-        }
         if (slot === "A" || slot === "AB") {
           const ra = await sendForPump(pumpId, "VALVE_A_OPEN");
           if (ra === "failed" || ra === "timeout") {
-            setNotice(ra === "timeout" ? "Pompe OK, mais pas de confirmation vanne A." : "Échec vanne A.");
+            setNotice(
+              ra === "timeout" ? "Pas de confirmation vanne A (délai)." : "Échec ouverture vanne A."
+            );
             return;
           }
         }
         if (slot === "B" || slot === "AB") {
           const rb = await sendForPump(pumpId, "VALVE_B_OPEN");
           if (rb === "failed" || rb === "timeout") {
-            setNotice(rb === "timeout" ? "Pompe OK, mais pas de confirmation vanne B." : "Échec vanne B.");
+            setNotice(
+              rb === "timeout" ? "Pas de confirmation vanne B (délai)." : "Échec ouverture vanne B."
+            );
             return;
           }
+        }
+        const r1 = await sendForPump(pumpId, "PUMP_ON");
+        if (r1 === "failed" || r1 === "timeout") {
+          setNotice(
+            r1 === "timeout"
+              ? "Vannes ouvertes, mais pas de confirmation pompe (délai)."
+              : "Vannes ouvertes, mais échec commande pompe."
+          );
+          return;
         }
         if (durationMin > 0) {
           setTimedWatering({ pumpId, slot, endsAt: Date.now() + durationMin * 60 * 1000 });
@@ -428,10 +432,10 @@ function IrrigationPageContent() {
       const slot = getValveSlot(zone);
       if (!pumpId) return;
       try {
+        await sendForPump(pumpId, "PUMP_OFF");
         if (slot === "A" || slot === "AB") await sendForPump(pumpId, "VALVE_A_CLOSE");
         if (slot === "B" || slot === "AB") await sendForPump(pumpId, "VALVE_B_CLOSE");
         if (!slot) await sendForPump(pumpId, "VALVE_CLOSE");
-        await sendForPump(pumpId, "PUMP_OFF");
         setTimedWatering(null);
         setNotice("Irrigation stoppée.");
       } catch (e) {
@@ -453,10 +457,10 @@ function IrrigationPageContent() {
     timedStopRef.current = setTimeout(() => {
       void (async () => {
         const { pumpId, slot } = tw;
+        await sendForPump(pumpId, "PUMP_OFF");
         if (slot === "A" || slot === "AB") await sendForPump(pumpId, "VALVE_A_CLOSE");
         if (slot === "B" || slot === "AB") await sendForPump(pumpId, "VALVE_B_CLOSE");
         if (!slot) await sendForPump(pumpId, "VALVE_CLOSE");
-        await sendForPump(pumpId, "PUMP_OFF");
         setTimedWatering(null);
         setNotice("Durée écoulée: irrigation arrêtée.");
       })();
@@ -740,8 +744,8 @@ function IrrigationPageContent() {
                         </p>
                       ) : null}
                       <p className="text-xs text-muted-foreground">
-                        Démarrer allume la pompe puis ouvre les vannes. Les boutons ci-dessous ne
-                        commandent que les vannes.
+                        Démarrer ouvre d&apos;abord les vannes puis allume la pompe. Stopper coupe
+                        d&apos;abord la pompe puis ferme les vannes.
                       </p>
                       <Button
                         className="w-full"
