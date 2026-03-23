@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,12 @@ export default function ProfilePage() {
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setFirstName(profile?.firstName ?? "");
+    setLastName(profile?.lastName ?? "");
+    setDisplayName(profile?.displayName ?? "");
+  }, [profile?.firstName, profile?.lastName, profile?.displayName]);
 
   if (loading) return <p className="text-muted-foreground">Chargement du profil…</p>;
 

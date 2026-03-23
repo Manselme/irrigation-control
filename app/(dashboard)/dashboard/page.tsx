@@ -12,6 +12,7 @@ import { useAllPumpStates } from "@/lib/hooks/useAllPumpStates";
 import { useLatestSensorMap } from "@/lib/hooks/useLatestSensorMap";
 import { useLinkedGateways } from "@/lib/hooks/useLinkedGateways";
 import { useWeeklyFlowEstimate } from "@/lib/hooks/useFlowEstimates";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { getFirebaseDb } from "@/lib/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ interface LowBatteryMaintenanceItem {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { profile } = useUserProfile(user?.uid);
   const { config: alertConfig } = useAlertConfig(user?.uid);
   const { modules, loading: modulesLoading } = useModules(user?.uid, {
     offlineThresholdMinutes: alertConfig?.offlineMinutesThreshold ?? 5,
@@ -182,10 +184,16 @@ export default function DashboardPage() {
   const firstOfflineGateway = gateways.find((g) => !g.online);
   const livePumpOnCount = Object.values(pumpStates).filter((s) => s.pumpOn).length;
   const quotaWeeklyM3 = 120;
+  const greetingName =
+    (profile?.firstName ?? "").trim() ||
+    (profile?.displayName ?? "").trim() ||
+    (user?.displayName ?? "").trim() ||
+    "utilisateur";
 
   return (
     <div className="flex min-h-[calc(100vh-6rem)] flex-col">
       <DashboardHeader />
+      <p className="mb-3 text-sm text-muted-foreground">Bonjour {greetingName}</p>
       <HealthBarBadges
         networkIncidents={networkIncidents}
         dryZonesCount={dryZonesCount}
