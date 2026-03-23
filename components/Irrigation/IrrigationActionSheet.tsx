@@ -14,6 +14,7 @@ import { AutoModeSwitch } from "@/components/Irrigation/AutoModeSwitch";
 import { ManualToggles } from "@/components/Irrigation/ManualToggles";
 import { useLastCommandState } from "@/lib/hooks/useCommands";
 import { formatRelativeTime } from "@/lib/time";
+import { formatModulePumpPressure } from "@/lib/pumpPressure";
 
 type ActionTab = "pilot" | "diagnostic" | "sectors";
 
@@ -250,9 +251,18 @@ export function IrrigationActionSheet({
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                         <p>Batterie: {sensor?.battery ?? mod.battery ?? "--"}%</p>
-                        <p>Tension sol: {sensor?.tension_cb ?? "--"} cb</p>
-                        <p>Humidite: {sensor?.humidity ?? "--"}%</p>
-                        <p>Derniere vue: {formatRelativeTime(mod.lastSeen)}</p>
+                        {mod.type === "pump" ? (
+                          <>
+                            <p>Pression: {formatModulePumpPressure(mod)}</p>
+                            <p>Derniere vue: {formatRelativeTime(mod.lastSeen)}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p>Tension sol: {sensor?.tension_cb ?? "--"} cb</p>
+                            <p>Humidite: {sensor?.humidity ?? "--"}%</p>
+                            <p>Derniere vue: {formatRelativeTime(mod.lastSeen)}</p>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
