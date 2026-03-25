@@ -15,6 +15,7 @@ import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { LinkedGateway, Module } from "@/types";
 import { PumpHydraulicConfigSheet } from "@/components/Material/PumpHydraulicConfigSheet";
+import { formatModulePumpPressure } from "@/lib/pumpPressure";
 
 type TabId = "all" | "gateway" | "pump" | "field";
 
@@ -144,6 +145,7 @@ export default function MaterialPage() {
               <th className="px-3 py-2 text-left font-medium">ID</th>
               <th className="px-3 py-2 text-left font-medium">ID usine / Device</th>
               <th className="px-3 py-2 text-left font-medium">Batterie</th>
+              <th className="px-3 py-2 text-left font-medium">Pression</th>
               <th className="px-3 py-2 text-left font-medium">Statut</th>
               <th className="px-3 py-2 text-left font-medium">Dernière vue</th>
               <th className="px-3 py-2 text-right font-medium">Action</th>
@@ -152,13 +154,13 @@ export default function MaterialPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-muted-foreground">
+                <td colSpan={8} className="px-3 py-4 text-muted-foreground">
                   Chargement…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-muted-foreground">
+                <td colSpan={8} className="px-3 py-4 text-muted-foreground">
                   Aucun équipement pour ce filtre.
                 </td>
               </tr>
@@ -192,6 +194,13 @@ export default function MaterialPage() {
                           <Battery className="h-4 w-4" />
                           {row.battery}%
                         </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {row.kind === "pump" && row.module ? (
+                        <span className="font-medium">{formatModulePumpPressure(row.module)}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </td>
                     <td className="px-3 py-2">

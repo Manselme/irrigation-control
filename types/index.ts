@@ -132,6 +132,20 @@ export interface SensorDataPoint {
 export interface AlertConfig {
   batteryThreshold?: number;
   pressureDropThreshold?: number;
+  /** Seuil pression haute (bar) au-dessus duquel on déclenche une sécurité. */
+  pressureHighThreshold?: number;
+  /** Sécurité: coupe automatiquement la pompe si pression basse. */
+  autoStopOnLowPressure?: boolean;
+  /** Délai (secondes) pendant lequel la pression doit rester basse avant arrêt. Défaut 5. */
+  autoStopLowPressureDelaySec?: number;
+  /** Si true, ferme aussi les vannes après arrêt pompe. Défaut true. */
+  autoStopCloseValves?: boolean;
+  /** Sécurité: ouvre les vannes et coupe la pompe si pression haute. */
+  autoStopOnHighPressure?: boolean;
+  /** Délai (secondes) pendant lequel la pression doit rester haute avant action. Défaut 1. */
+  autoStopHighPressureDelaySec?: number;
+  /** Si true, ouvre les vannes avant d’éteindre la pompe. Défaut true. */
+  autoStopOpenValves?: boolean;
   /** Tension sol (cb) au-dessus de laquelle on alerte un stress hydrique. */
   stressTensionThreshold?: number;
   offlineMinutesThreshold?: number;

@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { useAlertConfig } from "@/lib/hooks/useAlerts";
+import { useModules } from "@/lib/hooks/useModules";
+import { AutoPumpStopOnLowPressure } from "@/components/Safety/AutoPumpStopOnLowPressure";
 
 export default function DashboardLayout({
   children,
@@ -13,6 +16,10 @@ export default function DashboardLayout({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { config } = useAlertConfig(user?.uid);
+  const { modules } = useModules(user?.uid, {
+    offlineThresholdMinutes: config?.offlineMinutesThreshold ?? 5,
+  });
 
   useEffect(() => {
     if (loading) return;
@@ -37,6 +44,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-slate-50">
       <OfflineBanner />
+      <AutoPumpStopOnLowPressure userId={user.uid} config={config} modules={modules} />
       <div className="flex min-h-screen">
         <Sidebar />
         <div className="flex-1">
