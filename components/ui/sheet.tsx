@@ -15,11 +15,11 @@ const SheetContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
   <SheetPortal>
-    <SheetOverlay className="fixed inset-0 z-40 bg-black/30" />
+    <SheetOverlay className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px]" />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed right-0 top-0 z-50 h-full w-full max-w-md border-l bg-background p-6 shadow-xl",
+        "fixed right-0 top-0 z-50 h-full w-full max-w-md bg-surface-lowest p-6 shadow-xl ring-1 ring-border/20",
         className
       )}
       {...props}
@@ -43,7 +43,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold", className)}
+    className={cn("font-headline text-lg font-semibold", className)}
     {...props}
   />
 ));

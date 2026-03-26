@@ -32,22 +32,37 @@ export default function AlertsPage() {
     await Promise.all(unreadIds.map((id) => markAsRead(id)));
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Alertes</h1>
-        <p className="text-muted-foreground">
-          Paramétrez les seuils et consultez les notifications.
-        </p>
-      </div>
+  const criticalCount = notifications.filter((n) => !n.read).length;
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <AlertConfigForm config={config} onUpdate={updateConfig} />
-        <AlertList
-          notifications={notifications}
-          onMarkAsRead={markAsRead}
-          onMarkAllAsRead={handleMarkAllAsRead}
-        />
+  return (
+    <div className="space-y-8">
+      <header className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="font-headline text-3xl font-bold tracking-tight uppercase">
+            Alerts &amp; Configuration
+          </h1>
+          <p className="text-muted-foreground font-medium text-xs mt-1">
+            Paramétrez les seuils et consultez les notifications.
+          </p>
+        </div>
+        {criticalCount > 0 && (
+          <span className="rounded-full bg-destructive/10 px-3 py-1 text-[10px] font-bold uppercase text-destructive">
+            {criticalCount} Critical
+          </span>
+        )}
+      </header>
+
+      <div className="grid grid-cols-12 gap-6">
+        <section className="col-span-12 lg:col-span-8 space-y-6">
+          <AlertConfigForm config={config} onUpdate={updateConfig} />
+        </section>
+        <aside className="col-span-12 lg:col-span-4">
+          <AlertList
+            notifications={notifications}
+            onMarkAsRead={markAsRead}
+            onMarkAllAsRead={handleMarkAllAsRead}
+          />
+        </aside>
       </div>
     </div>
   );

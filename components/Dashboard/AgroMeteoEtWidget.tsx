@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAgroMeteoSnapshot, type AgroMeteoSnapshot } from "@/lib/weather";
+import { Sun } from "lucide-react";
 
 interface AgroMeteoEtWidgetProps {
   lat: number;
@@ -30,7 +30,7 @@ export function AgroMeteoEtWidget({ lat, lng }: AgroMeteoEtWidgetProps) {
         const next = await getAgroMeteoSnapshot(lat, lng);
         if (mounted) setData(next);
       } catch {
-        if (mounted) setError("Météo indisponible pour le moment.");
+        if (mounted) setError("Weather data unavailable.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -44,58 +44,57 @@ export function AgroMeteoEtWidget({ lat, lng }: AgroMeteoEtWidgetProps) {
   }, [lat, lng]);
 
   const timeline = useMemo(
-    () => (data?.hourly24h ?? []).filter((_, i) => i % 3 === 0).slice(0, 8),
+    () => (data?.hourly24h ?? []).filter((_, i) => i % 3 === 0).slice(0, 4),
     [data]
   );
 
+  if (loading) {
+    return (
+      <section className="rounded-xl bg-primary p-5 text-white">
+        <Skeleton className="h-14 w-full bg-white/20" />
+        <Skeleton className="mt-3 h-20 w-full bg-white/20" />
+      </section>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <section className="rounded-xl bg-primary p-5 text-white">
+        <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Local Weather &amp; ET</p>
+        <p className="mt-2 text-xs opacity-70">{error ?? "No data available."}</p>
+      </section>
+    );
+  }
+
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium">Météo agronomique & ET</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {loading ? (
-          <>
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-20 w-full" />
-          </>
-        ) : error ? (
-          <p className="text-sm text-muted-foreground">{error}</p>
-        ) : !data ? (
-          <p className="text-sm text-muted-foreground">Pas de données météo disponibles.</p>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="rounded-md border bg-slate-50 p-2">
-                <p className="text-muted-foreground">ET estimée (jour)</p>
-                <p className="text-lg font-semibold">{data.etTodayMm.toFixed(1)} mm</p>
-              </div>
-              <div className="rounded-md border bg-slate-50 p-2">
-                <p className="text-muted-foreground">Pluie cumulée 24h</p>
-                <p className="text-lg font-semibold">{data.rain24hMm.toFixed(1)} mm</p>
-              </div>
+    <section className="flex flex-col justify-between rounded-xl bg-primary p-5 text-white">
+      <div>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Local Weather &amp; ET</p>
+            <h3 className="font-headline text-xl font-bold">
+              {`${lat.toFixed(1)}°, ${lng.toFixed(1)}°`}
+            </h3>
+          </div>
+          <Sun className="h-8 w-8 opacity-80" />
+        </div>
+        <div className="grid grid-cols-2 gap-y-4 gap-x-2">
+          <div>
+            <p className="text-[9px] font-bold uppercase opacity-70">ET (Daily)</p>
+            <p className="font-headline text-lg font-black">{data.etTodayMm.toFixed(1)} mm/d</p>
+          </div>
+          <div>
+            <p className="text-[9px] font-bold uppercase opacity-70">Rain 24h</p>
+            <p className="font-headline text-lg font-black">{data.rain24hMm.toFixed(1)} mm</p>
+          </div>
+          {timeline.slice(0, 2).map((point) => (
+            <div key={point.time}>
+              <p className="text-[9px] font-bold uppercase opacity-70">{hourLabel(point.time)}</p>
+              <p className="font-headline text-sm font-bold">{Math.round(point.tempC)}°C &middot; {Math.round(point.windKmh)} km/h</p>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Timeline 24h</p>
-              {timeline.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucune prévision horaire.</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                  {timeline.map((point) => (
-                    <div key={point.time} className="rounded-md border p-2">
-                      <p className="font-medium">{hourLabel(point.time)}</p>
-                      <p>{Math.round(point.tempC)}°C</p>
-                      <p>Vent {Math.round(point.windKmh)} km/h</p>
-                      <p>Pluie {Math.round(point.rainProbPct)}%</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
-

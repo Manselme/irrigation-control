@@ -59,22 +59,26 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Historique</h1>
-          <p className="text-muted-foreground">
-            Historique &amp; analytique par zone : irrigation, pluie, tension du sol, bilan hydrique.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {farms.length > 1 && (
+      {/* Header */}
+      <div>
+        <h1 className="font-headline text-3xl font-bold tracking-tight uppercase">Analytics Hub</h1>
+        <p className="text-xs text-muted-foreground font-medium mt-1">
+          Historique &amp; analytique par zone : irrigation, pluie, tension du sol, bilan hydrique.
+        </p>
+      </div>
+
+      {/* Filter Bar */}
+      <section className="flex flex-wrap items-center gap-3">
+        {farms.length > 1 && (
+          <div className="bg-surface-low px-4 py-2 rounded-lg flex items-center gap-3 ring-1 ring-border/10">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Farm</span>
             <select
               value={selectedFarmId ?? ""}
               onChange={(e) => {
                 setSelectedFarmId(e.target.value || null);
                 setSelectedZoneId(null);
               }}
-              className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="bg-transparent border-none text-sm font-semibold p-0 focus:ring-0"
             >
               <option value="">Toutes les fermes</option>
               {farms.map((f) => (
@@ -83,12 +87,15 @@ export default function HistoryPage() {
                 </option>
               ))}
             </select>
-          )}
-          {zones.length > 0 && (
+          </div>
+        )}
+        {zones.length > 0 && (
+          <div className="bg-surface-low px-4 py-2 rounded-lg flex items-center gap-3 border-l-4 border-primary ring-1 ring-border/10">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Zone</span>
             <select
               value={selectedZoneId ?? selectedZone?.id ?? ""}
               onChange={(e) => setZone(e.target.value || null)}
-              className="flex h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[180px]"
+              className="bg-transparent border-none text-sm font-semibold p-0 focus:ring-0 min-w-[140px]"
             >
               {zones.map((z) => (
                 <option key={z.id} value={z.id}>
@@ -96,14 +103,17 @@ export default function HistoryPage() {
                 </option>
               ))}
             </select>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+      </section>
 
+      {/* Content */}
       {zones.length === 0 ? (
-        <p className="text-muted-foreground">
-          Aucune zone. Créez une zone et associez des capteurs pour afficher l&apos;historique détaillé.
-        </p>
+        <div className="rounded-xl bg-surface-lowest p-8 ring-1 ring-border/10 text-center">
+          <p className="text-muted-foreground">
+            Aucune zone. Créez une zone et associez des capteurs pour afficher l&apos;historique détaillé.
+          </p>
+        </div>
       ) : selectedZone ? (
         <ZoneHistoryDetail
           zone={selectedZone}

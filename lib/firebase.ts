@@ -1,4 +1,4 @@
-import { initializeApp, getApps, FirebaseApp } from "firebase/app";
+import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getDatabase, Database } from "firebase/database";
 import { getStorage, FirebaseStorage } from "firebase/storage";
@@ -18,19 +18,33 @@ let auth: Auth | undefined;
 let db: Database | undefined;
 let storage: FirebaseStorage | undefined;
 
+function assertFirebaseEnv() {
+  const missing: string[] = [];
+  if (!firebaseConfig.apiKey) missing.push("NEXT_PUBLIC_FIREBASE_API_KEY");
+  if (!firebaseConfig.authDomain) missing.push("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN");
+  if (!firebaseConfig.databaseURL) missing.push("NEXT_PUBLIC_FIREBASE_DATABASE_URL");
+  if (!firebaseConfig.projectId) missing.push("NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+  if (!firebaseConfig.storageBucket) missing.push("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET");
+  if (!firebaseConfig.messagingSenderId) missing.push("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID");
+  if (!firebaseConfig.appId) missing.push("NEXT_PUBLIC_FIREBASE_APP_ID");
+  if (missing.length > 0) {
+    throw new Error(
+      `Firebase config manquante. Ajoutez ces variables dans .env.local (V2) : ${missing.join(
+        ", "
+      )}`
+    );
+  }
+}
+
 function initFirebase() {
   if (typeof window === "undefined") return;
-  if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getDatabase(app);
-    storage = getStorage(app);
-  } else {
-    app = getApps()[0] as FirebaseApp;
-    auth = getAuth(app);
-    db = getDatabase(app);
-    storage = getStorage(app);
-  }
+  assertFirebaseEnv();
+  const existing = getApps()[0] as FirebaseApp | undefined;
+  const firebaseApp = existing ?? initializeApp(firebaseConfig);
+  app = firebaseApp;
+  auth = getAuth(firebaseApp);
+  db = getDatabase(firebaseApp);
+  storage = getStorage(firebaseApp);
 }
 
 export function getFirebaseAuth(): Auth {

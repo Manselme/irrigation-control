@@ -4,14 +4,6 @@ import { useState, useEffect } from "react";
 import type { AlertConfig } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 interface AlertConfigFormProps {
   config: AlertConfig;
@@ -82,176 +74,113 @@ export function AlertConfigForm({ config, onUpdate }: AlertConfigFormProps) {
   };
 
   return (
-    <Card className="border-border">
-      <CardHeader>
-        <CardTitle className="text-base">Seuils d&apos;alerte</CardTitle>
-        <CardDescription>
-          Définissez les seuils pour recevoir des notifications.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="battery">Batterie (alerte si &lt; %)</Label>
-          <Input
-            id="battery"
-            type="number"
-            min={0}
-            max={100}
-            value={battery}
-            onChange={(e) => setBattery(e.target.value)}
-            placeholder="ex: 10"
-            className="border-border"
-          />
+    <div className="rounded-xl bg-surface-low p-6 ring-1 ring-border/10 space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.1em] mb-1">Global Parameters</p>
+          <h3 className="font-headline text-xl font-semibold">Configuration Thresholds</h3>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="offline">Module hors ligne (alerte après min)</Label>
-          <Input
-            id="offline"
-            type="number"
-            min={1}
-            value={offline}
-            onChange={(e) => setOffline(e.target.value)}
-            placeholder="ex: 5"
-            className="border-border"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="pressure">Chute de pression (pompe)</Label>
-          <Input
-            id="pressure"
-            type="number"
-            min={0}
-            value={pressure}
-            onChange={(e) => setPressure(e.target.value)}
-            placeholder="optionnel"
-            className="border-border"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="pressureHigh">Surpression (pompe)</Label>
-          <Input
-            id="pressureHigh"
-            type="number"
-            min={0}
-            value={pressureHigh}
-            onChange={(e) => setPressureHigh(e.target.value)}
-            placeholder="optionnel (ex: 8)"
-            className="border-border"
-          />
-        </div>
-        <div className="rounded-lg border border-border p-3 space-y-2">
-          <p className="text-sm font-medium">Sécurité pression (Auto‑STOP)</p>
-          <label className="flex items-center justify-between gap-3 text-sm">
-            <span>Couper la pompe si pression &lt; seuil</span>
-            <input
-              type="checkbox"
-              checked={autoStop}
-              onChange={(e) => setAutoStop(e.target.checked)}
-            />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="autoStopDelay">Délai (s)</Label>
-              <Input
-                id="autoStopDelay"
-                type="number"
-                min={0}
-                value={autoStopDelay}
-                onChange={(e) => setAutoStopDelay(e.target.value)}
-                disabled={!autoStop}
-                className="border-border"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Fermer aussi les vannes</Label>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={autoStopCloseValves}
-                  onChange={(e) => setAutoStopCloseValves(e.target.checked)}
-                  disabled={!autoStop}
-                />
-                Oui
-              </label>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Requiert un seuil « Chute de pression » au-dessus. Si la pompe est en marche et que la
-            pression reste sous le seuil pendant le délai, la pompe est coupée automatiquement.
-          </p>
-        </div>
-        <div className="rounded-lg border border-border p-3 space-y-2">
-          <p className="text-sm font-medium">Sécurité surpression</p>
-          <label className="flex items-center justify-between gap-3 text-sm">
-            <span>Ouvrir les vannes puis couper la pompe si pression &gt; seuil</span>
-            <input
-              type="checkbox"
-              checked={autoStopHigh}
-              onChange={(e) => setAutoStopHigh(e.target.checked)}
-            />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="autoStopHighDelay">Délai (s)</Label>
-              <Input
-                id="autoStopHighDelay"
-                type="number"
-                min={0}
-                value={autoStopHighDelay}
-                onChange={(e) => setAutoStopHighDelay(e.target.value)}
-                disabled={!autoStopHigh}
-                className="border-border"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Ouvrir les vannes</Label>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={autoStopOpenValves}
-                  onChange={(e) => setAutoStopOpenValves(e.target.checked)}
-                  disabled={!autoStopHigh}
-                />
-                Oui (VALVE_OPEN)
-              </label>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Requiert un seuil « Surpression ». Si la pompe est en marche et que la pression reste au‑dessus
-            du seuil pendant le délai, le site ouvre les vannes puis coupe la pompe.
-          </p>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="stress">Stress hydrique (cb)</Label>
-          <Input
-            id="stress"
-            type="number"
-            min={0}
-            value={stress}
-            onChange={(e) => setStress(e.target.value)}
-            placeholder="60"
-            className="border-border"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="rearm">Délai avant réarmement (min)</Label>
-          <Input
-            id="rearm"
-            type="number"
-            min={0}
-            value={rearm}
-            onChange={(e) => setRearm(e.target.value)}
-            placeholder="1"
-            className="border-border"
-          />
-          <p className="text-xs text-muted-foreground">
-            Temps pendant lequel la condition doit être OK avant de pouvoir déclencher à nouveau une alerte (prototypage : 0 = immédiat).
-          </p>
-        </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? "Enregistrement…" : "Enregistrer"}
+        <Button onClick={handleSave} disabled={saving} className="text-xs font-semibold">
+          {saving ? "Saving…" : "Apply Changes"}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-lg bg-surface-lowest p-5 ring-1 ring-border/10">
+          <h4 className="mb-4 text-sm font-semibold">Battery Alert</h4>
+          <div className="flex items-end gap-2">
+            <Input id="battery" type="number" min={0} max={100} value={battery} onChange={(e) => setBattery(e.target.value)} placeholder="15" className="text-2xl font-headline font-bold w-20 h-10" />
+            <span className="text-sm text-muted-foreground mb-1">%</span>
+          </div>
+        </div>
+        <div className="rounded-lg bg-surface-lowest p-5 ring-1 ring-border/10">
+          <h4 className="mb-4 text-sm font-semibold">Offline Timeout</h4>
+          <div className="flex items-end gap-2">
+            <Input id="offline" type="number" min={1} value={offline} onChange={(e) => setOffline(e.target.value)} placeholder="120" className="text-2xl font-headline font-bold w-24 h-10" />
+            <span className="text-sm text-muted-foreground mb-1">MIN</span>
+          </div>
+        </div>
+        <div className="rounded-lg bg-surface-lowest p-5 ring-1 ring-border/10">
+          <h4 className="mb-4 text-sm font-semibold">Pressure Drop</h4>
+          <div className="flex items-end gap-2">
+            <Input id="pressure" type="number" min={0} value={pressure} onChange={(e) => setPressure(e.target.value)} placeholder="2.4" className="text-2xl font-headline font-bold w-20 h-10" />
+            <span className="text-sm text-muted-foreground mb-1">BAR</span>
+          </div>
+        </div>
+        <div className="rounded-lg bg-surface-lowest p-5 ring-1 ring-border/10">
+          <h4 className="mb-4 text-sm font-semibold">Water Stress</h4>
+          <div className="flex items-end gap-2">
+            <Input id="stress" type="number" min={0} value={stress} onChange={(e) => setStress(e.target.value)} placeholder="60" className="text-2xl font-headline font-bold w-20 h-10" />
+            <span className="text-sm text-muted-foreground mb-1">CB</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Pressure Security (dark panel like Stitch) */}
+      <div className="rounded-xl bg-neutral-900 text-white p-6 space-y-6">
+        <div className="flex items-center gap-3 mb-4">
+          <h3 className="font-headline text-lg font-semibold">Pressure Security</h3>
+          <span className="text-[10px] text-neutral-400 uppercase tracking-widest">Autonomous Logic</span>
+        </div>
+        <div className="rounded-lg bg-neutral-800 p-4 border-l-4 border-destructive space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold uppercase tracking-wider">Under-Pressure Logic</h4>
+            <label className="relative inline-flex h-5 w-9 items-center rounded-full cursor-pointer transition-colors" style={{ background: autoStop ? "#0d631b" : "#525252" }}>
+              <input type="checkbox" checked={autoStop} onChange={(e) => setAutoStop(e.target.checked)} className="sr-only" />
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${autoStop ? "translate-x-4" : "translate-x-0.5"}`} />
+            </label>
+          </div>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-neutral-400">Trigger Point</span>
+            <span className="font-mono">&lt; {pressure || "—"} BAR</span>
+          </div>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-neutral-400">Delay</span>
+            <Input type="number" min={0} value={autoStopDelay} onChange={(e) => setAutoStopDelay(e.target.value)} disabled={!autoStop} className="w-16 h-6 text-xs bg-neutral-700 text-white ring-0 border-0" />
+          </div>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-neutral-400">Close Valves</span>
+            <label className="relative inline-flex h-4 w-7 items-center rounded-full cursor-pointer" style={{ background: autoStopCloseValves ? "#0d631b" : "#525252" }}>
+              <input type="checkbox" checked={autoStopCloseValves} onChange={(e) => setAutoStopCloseValves(e.target.checked)} disabled={!autoStop} className="sr-only" />
+              <span className={`inline-block h-2.5 w-2.5 rounded-full bg-white transition-transform ${autoStopCloseValves ? "translate-x-3.5" : "translate-x-0.5"}`} />
+            </label>
+          </div>
+        </div>
+        <div className="rounded-lg bg-neutral-800 p-4 border-l-4 border-blue-500 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold uppercase tracking-wider">Over-Pressure Logic</h4>
+            <label className="relative inline-flex h-5 w-9 items-center rounded-full cursor-pointer transition-colors" style={{ background: autoStopHigh ? "#0d631b" : "#525252" }}>
+              <input type="checkbox" checked={autoStopHigh} onChange={(e) => setAutoStopHigh(e.target.checked)} className="sr-only" />
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${autoStopHigh ? "translate-x-4" : "translate-x-0.5"}`} />
+            </label>
+          </div>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-neutral-400">Trigger Point</span>
+            <div className="flex items-center gap-1">
+              <span className="font-mono">&gt;</span>
+              <Input type="number" min={0} value={pressureHigh} onChange={(e) => setPressureHigh(e.target.value)} className="w-16 h-6 text-xs bg-neutral-700 text-white ring-0 border-0" />
+              <span className="font-mono">BAR</span>
+            </div>
+          </div>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-neutral-400">Delay</span>
+            <Input type="number" min={0} value={autoStopHighDelay} onChange={(e) => setAutoStopHighDelay(e.target.value)} disabled={!autoStopHigh} className="w-16 h-6 text-xs bg-neutral-700 text-white ring-0 border-0" />
+          </div>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-neutral-400">Open Valves</span>
+            <label className="relative inline-flex h-4 w-7 items-center rounded-full cursor-pointer" style={{ background: autoStopOpenValves ? "#0d631b" : "#525252" }}>
+              <input type="checkbox" checked={autoStopOpenValves} onChange={(e) => setAutoStopOpenValves(e.target.checked)} disabled={!autoStopHigh} className="sr-only" />
+              <span className={`inline-block h-2.5 w-2.5 rounded-full bg-white transition-transform ${autoStopOpenValves ? "translate-x-3.5" : "translate-x-0.5"}`} />
+            </label>
+          </div>
+        </div>
+        <div className="rounded-lg bg-neutral-800/50 p-4 ring-1 ring-neutral-700 space-y-2">
+          <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Fail-Safe Rearm</h4>
+          <div className="flex items-center gap-3">
+            <Input type="number" min={0} value={rearm} onChange={(e) => setRearm(e.target.value)} className="w-16 h-7 text-xs bg-neutral-700 text-white ring-0 border-0" />
+            <span className="text-xs font-bold">minutes</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

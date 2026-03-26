@@ -7,56 +7,28 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useModules } from "@/lib/hooks/useModules";
 import { useAlertConfig, useAlertNotifications } from "@/lib/hooks/useAlerts";
 import { useZones } from "@/lib/hooks/useZones";
-import { useQuickAccess } from "@/lib/hooks/useQuickAccess";
 import { useAllPumpStates } from "@/lib/hooks/useAllPumpStates";
 import { useLatestSensorMap } from "@/lib/hooks/useLatestSensorMap";
 import { useLinkedGateways } from "@/lib/hooks/useLinkedGateways";
 import { useWeeklyFlowEstimate } from "@/lib/hooks/useFlowEstimates";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { useFarms } from "@/lib/hooks/useFarms";
 import { getFirebaseDb } from "@/lib/firebase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { QuickAccessEditor } from "@/components/QuickAccessEditor";
-import { DashboardHeader } from "@/components/Dashboard/DashboardHeader";
-import { LiveActivityWidget } from "@/components/Dashboard/LiveActivityWidget";
-import { AlertsMaterialWidget } from "@/components/Dashboard/AlertsMaterialWidget";
-import { HealthBarBadges } from "@/components/Dashboard/HealthBarBadges";
-import {
-  TopCriticalZonesWidget,
-  type CriticalZoneItem,
-} from "@/components/Dashboard/TopCriticalZonesWidget";
+import { TopCriticalZonesWidget, type CriticalZoneItem } from "@/components/Dashboard/TopCriticalZonesWidget";
 import { AgroMeteoEtWidget } from "@/components/Dashboard/AgroMeteoEtWidget";
-import { PumpQuotaRingWidget } from "@/components/Dashboard/PumpQuotaRingWidget";
+import { LiveActivityWidget } from "@/components/Dashboard/LiveActivityWidget";
 import { MaintenanceCompactWidget } from "@/components/Dashboard/MaintenanceCompactWidget";
+import { AlertsMaterialWidget } from "@/components/Dashboard/AlertsMaterialWidget";
 import {
-  Bell,
-  Settings2,
-  Map,
-  Droplets,
-  History,
-  Wrench,
-  MapPin,
   AlertTriangle,
   Radio,
+  Droplets,
   CheckCircle2,
 } from "lucide-react";
-import { isZoneItemId } from "@/lib/quickAccess";
 import { formatRelativeTime } from "@/lib/time";
 import type { Module } from "@/types";
-
-const ICON_BY_ID: Record<string, React.ComponentType<{ className?: string }>> = {
-  material: Wrench,
-  map: Map,
-  irrigation: Droplets,
-  history: History,
-  alerts: Bell,
-} as const;
-
-function getIconForItem(item: { id: string }): React.ComponentType<{ className?: string }> | null {
-  if (isZoneItemId(item.id)) return MapPin;
-  return ICON_BY_ID[item.id] ?? null;
-}
 
 const DEFAULT_LAT = 46.6;
 const DEFAULT_LNG = 1.9;
@@ -78,6 +50,7 @@ interface LowBatteryMaintenanceItem {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { profile } = useUserProfile(user?.uid);
+  const { farms } = useFarms(user?.uid);
   const { config: alertConfig } = useAlertConfig(user?.uid);
   const { modules, loading: modulesLoading } = useModules(user?.uid, {
     offlineThresholdMinutes: alertConfig?.offlineMinutesThreshold ?? 5,
@@ -85,8 +58,6 @@ export default function DashboardPage() {
   const { zones } = useZones(user?.uid, null);
   const { notifications } = useAlertNotifications(user?.uid);
   const { gateways } = useLinkedGateways(user?.uid);
-  const { items, setQuickAccess } = useQuickAccess(user?.uid);
-  const [editorOpen, setEditorOpen] = useState(false);
 
   const pumpModules = modules.filter((m: Module) => m.type === "pump");
   const pumpRefs = pumpModules.map((m: Module) => ({
@@ -182,204 +153,190 @@ export default function DashboardPage() {
   const onboardingDone = hasGateway && hasModules && hasZone && hasPump;
 
   const firstOfflineGateway = gateways.find((g) => !g.online);
-  const livePumpOnCount = Object.values(pumpStates).filter((s) => s.pumpOn).length;
-  const quotaWeeklyM3 = 120;
+  const farmName = farms[0]?.name ?? "Mon exploitation";
   const greetingName =
     (profile?.firstName ?? "").trim() ||
     (profile?.displayName ?? "").trim() ||
     (user?.displayName ?? "").trim() ||
-    "utilisateur";
+    "Manager";
+
+  const dateStr = new Date().toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   return (
-    <div className="flex min-h-[calc(100vh-6rem)] flex-col">
-      <DashboardHeader />
-      <p className="mb-3 text-sm text-muted-foreground">Bonjour {greetingName}</p>
-      <HealthBarBadges
-        networkIncidents={networkIncidents}
-        dryZonesCount={dryZonesCount}
-        weeklyVolumeM3={weeklyVolumeM3Effective}
-      />
-      {!onboardingDone && (
-        <Card className="mb-6 border-slate-200 bg-white">
-          <CardHeader>
-            <CardTitle className="text-base">Démarrage guidé</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <Link className="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" href="/material">
-              1. Connecter la Passerelle
-              <p className="mt-1 text-xs text-slate-600">{hasGateway ? "Terminée" : "À faire"}</p>
-            </Link>
-            <Link className="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" href="/material">
-              2. Ajouter des Modules
-              <p className="mt-1 text-xs text-slate-600">{hasModules ? "Terminée" : "À faire"}</p>
-            </Link>
-            <Link className="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" href="/irrigation">
-              3. Définir une Zone
-              <p className="mt-1 text-xs text-slate-600">{hasZone ? "Terminée" : "À faire"}</p>
-            </Link>
-            <Link className="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" href="/irrigation">
-              4. Premier Test ON/OFF
-              <p className="mt-1 text-xs text-slate-600">{hasPump ? "Terminée" : "À faire"}</p>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="mb-6 grid gap-3 md:grid-cols-2">
-        {topCritical[0] && (
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="flex items-center justify-between gap-3 p-4">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-                <p className="text-sm text-red-900">
-                  {topCritical[0].zoneName}: Stress critique ({Math.round(topCritical[0].tensionCb)} cb)
-                </p>
-              </div>
-              <Button size="sm" asChild>
-                <Link href={`/irrigation?zone=${topCritical[0].zoneId}`}>Irriguer</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-        {firstOfflineGateway && (
-          <Card className="border-amber-200 bg-amber-50">
-            <CardContent className="flex items-center justify-between gap-3 p-4">
-              <div className="flex items-center gap-2">
-                <Radio className="h-4 w-4 text-amber-700" />
-                <p className="text-sm text-amber-900">
-                  {firstOfflineGateway.gatewayId} hors-ligne ({formatRelativeTime(firstOfflineGateway.lastSeen)})
-                </p>
-              </div>
-              <Button size="sm" variant="outline" asChild>
-                <Link href="/material">Dépanner</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-        {!topCritical[0] && !firstOfflineGateway && (
-          <Card className="md:col-span-2 border-emerald-200 bg-emerald-50">
-            <CardContent className="flex items-center gap-2 p-4 text-sm text-emerald-900">
-              <CheckCircle2 className="h-4 w-4" />
-              Priorités du jour: aucun incident critique détecté.
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {modulesLoading ? (
-        <div className="grid gap-4 xl:grid-cols-12">
-          <div className="xl:col-span-8">
-            <Skeleton className="h-[320px] w-full" />
+    <div className="space-y-6">
+      {/* Welcome Header + KPI Badges (Stitch-style inline) */}
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="font-headline text-3xl font-bold tracking-tight">
+            Good morning, {greetingName}
+          </h1>
+          <p className="text-muted-foreground font-medium text-sm">
+            {dateStr} &bull; Site: {farmName}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-3 bg-surface-lowest px-4 py-2 rounded ring-1 ring-border/15">
+            <Radio className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Network</p>
+              <p className="text-sm font-headline font-bold">
+                {networkIncidents === 0 ? "All Online" : `${networkIncidents} Offline`}
+              </p>
+            </div>
           </div>
-          <div className="space-y-4 xl:col-span-4">
-            <Skeleton className="h-[220px] w-full" />
-            <Skeleton className="h-[220px] w-full" />
+          <div className="flex items-center gap-3 bg-surface-lowest px-4 py-2 rounded ring-1 ring-border/15">
+            <AlertTriangle className={`h-4 w-4 ${dryZonesCount > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+            <div>
+              <p className={`text-[10px] font-bold uppercase tracking-widest ${dryZonesCount > 0 ? "text-destructive" : "text-muted-foreground"}`}>Stress</p>
+              <p className={`text-sm font-headline font-bold ${dryZonesCount > 0 ? "text-destructive" : ""}`}>
+                {dryZonesCount === 0 ? "Optimal" : `${dryZonesCount} Critical`}
+              </p>
+            </div>
           </div>
-          <div className="xl:col-span-6">
-            <Skeleton className="h-[280px] w-full" />
-          </div>
-          <div className="xl:col-span-6">
-            <Skeleton className="h-[280px] w-full" />
-          </div>
-          <div className="xl:col-span-6">
-            <Skeleton className="h-[260px] w-full" />
-          </div>
-          <div className="xl:col-span-6">
-            <Skeleton className="h-[260px] w-full" />
+          <div className="flex items-center gap-3 bg-surface-lowest px-4 py-2 rounded ring-1 ring-border/15">
+            <Droplets className="h-4 w-4 text-primary" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Volume</p>
+              <p className="text-sm font-headline font-bold">{weeklyVolumeM3Effective.toFixed(0)} m³</p>
+            </div>
           </div>
         </div>
-      ) : (
-        <div className="grid gap-4 xl:grid-cols-12">
-          <div className="xl:col-span-8">
-            <TopCriticalZonesWidget zones={topCritical} />
-          </div>
-          <div className="space-y-4 xl:col-span-4">
-            <PumpQuotaRingWidget
-              weeklyVolumeM3={weeklyVolumeM3Effective}
-              quotaM3={quotaWeeklyM3}
-              livePumpOnCount={livePumpOnCount}
-            />
-            <MaintenanceCompactWidget
-              lowBatteries={modules
-                .map((module: Module) => {
-                  const batteryCandidate = latestSensors[module.id]?.battery;
-                  const battery =
-                    typeof batteryCandidate === "number" && Number.isFinite(batteryCandidate)
-                      ? batteryCandidate
-                      : module.battery;
-                  if (typeof battery !== "number" || battery >= 20) return null;
-                  return {
-                    id: module.id,
-                    name: module.name || module.id,
-                    battery: Math.round(battery),
-                    lastSeenLabel: formatRelativeTime(module.lastSeen),
-                  };
-                })
-                .filter(
-                  (item: LowBatteryMaintenanceItem | null): item is LowBatteryMaintenanceItem =>
-                    item != null
-                )}
-            />
-          </div>
-          <div className="xl:col-span-6">
-            <AgroMeteoEtWidget lat={lat} lng={lng} />
-          </div>
-          <div className="xl:col-span-6">
-            <LiveActivityWidget userId={user?.uid} pumpModules={pumpModules} pumpStates={pumpStates} />
-          </div>
-          <div className="xl:col-span-6">
-            <AlertsMaterialWidget notifications={notifications} maxItems={5} />
-          </div>
-          <div className="xl:col-span-6">
-            <Card className="border-border">
-              <CardHeader className="flex flex-row items-center justify-between pb-4 pt-6 px-6 shrink-0">
-                <CardTitle className="text-base font-medium text-muted-foreground">
-                  Accès rapide
-                </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
-                  onClick={() => setEditorOpen(true)}
-                  aria-label="Personnaliser"
-                >
-                  <Settings2 className="h-5 w-5 text-muted-foreground" />
-                </Button>
-              </CardHeader>
-              <CardContent className="px-6 pb-8">
-                <div className="flex flex-col gap-3">
-                  {items.map((item) => {
-                    const Icon = getIconForItem(item);
-                    return (
-                      <Button
-                        key={item.id}
-                        variant="outline"
-                        size="lg"
-                        className="gap-3 h-14 w-full justify-start px-5 text-base font-medium"
-                        asChild
-                      >
-                        <Link href={item.href}>
-                          {Icon && <Icon className="h-7 w-7 shrink-0" />}
-                          {item.label}
-                        </Link>
-                      </Button>
-                    );
-                  })}
+      </header>
+
+      {/* Bento Grid: 4-col left + 8-col right */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+        {/* Left Sidebar: Onboarding + Priority Actions */}
+        <div className="md:col-span-4 space-y-4">
+          {!onboardingDone && (
+            <section className="rounded-lg bg-surface-lowest p-5 ring-1 ring-border/15">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-widest">Onboarding Progress</h3>
+                <span className="text-sm font-bold text-primary">
+                  {[hasGateway, hasModules, hasZone, hasPump].filter(Boolean).length * 25}%
+                </span>
+              </div>
+              <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-surface-low">
+                <div
+                  className="h-full bg-primary"
+                  style={{ width: `${[hasGateway, hasModules, hasZone, hasPump].filter(Boolean).length * 25}%` }}
+                />
+              </div>
+              <ul className="space-y-2">
+                {[
+                  { done: hasGateway, label: "Gateway Sync", href: "/material" },
+                  { done: hasModules, label: "Add Modules", href: "/material" },
+                  { done: hasZone, label: "Zone Mapping", href: "/irrigation" },
+                  { done: hasPump, label: "Pump Integration", href: "/irrigation" },
+                ].map((step) => (
+                  <li key={step.label}>
+                    <Link
+                      href={step.href}
+                      className="flex items-center gap-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      {step.done ? (
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                      ) : (
+                        <span className="h-4 w-4 rounded-full ring-1 ring-border/30" />
+                      )}
+                      {step.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Priority Actions */}
+          <div className="space-y-3">
+            {topCritical[0] && (
+              <div className="rounded-r-lg border-l-4 border-destructive bg-destructive/5 p-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-destructive">High Stress Alert</span>
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
                 </div>
-              </CardContent>
-            </Card>
+                <h4 className="font-headline text-base font-bold mb-1">
+                  {topCritical[0].zoneName} (Critical)
+                </h4>
+                <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+                  Soil tension at {Math.round(topCritical[0].tensionCb)} cb. Irrigation recommended.
+                </p>
+                <Button size="sm" variant="destructive" className="w-full text-[10px] uppercase tracking-widest" asChild>
+                  <Link href={`/irrigation?zone=${topCritical[0].zoneId}`}>Start Irrigation</Link>
+                </Button>
+              </div>
+            )}
+            {firstOfflineGateway && (
+              <div className="rounded-r-lg border-l-4 border-amber-600 bg-surface-low p-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Connectivity Issue</span>
+                  <Radio className="h-4 w-4 text-amber-600" />
+                </div>
+                <h4 className="font-headline text-base font-bold mb-1">
+                  {firstOfflineGateway.gatewayId} (Offline)
+                </h4>
+                <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+                  Offline since {formatRelativeTime(firstOfflineGateway.lastSeen)}.
+                </p>
+                <Button size="sm" variant="outline" className="w-full text-[10px] uppercase tracking-widest" asChild>
+                  <Link href="/material">Diagnose</Link>
+                </Button>
+              </div>
+            )}
+            {!topCritical[0] && !firstOfflineGateway && (
+              <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-4 text-sm text-primary">
+                <CheckCircle2 className="h-4 w-4" />
+                No critical incidents detected.
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      <QuickAccessEditor
-        open={editorOpen}
-        onOpenChange={setEditorOpen}
-        items={items}
-        onSave={setQuickAccess}
-        userId={user?.uid}
-      />
+        {/* Main Grid Area (8-col): 2x2 + full-width alerts */}
+        <div className="md:col-span-8 grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {modulesLoading ? (
+            <>
+              <Skeleton className="h-[220px] w-full rounded-lg" />
+              <Skeleton className="h-[220px] w-full rounded-lg" />
+              <Skeleton className="h-[200px] w-full rounded-lg" />
+              <Skeleton className="h-[200px] w-full rounded-lg" />
+              <Skeleton className="h-[160px] w-full rounded-lg lg:col-span-2" />
+            </>
+          ) : (
+            <>
+              <TopCriticalZonesWidget zones={topCritical} />
+              <AgroMeteoEtWidget lat={lat} lng={lng} />
+              <LiveActivityWidget userId={user?.uid} pumpModules={pumpModules} pumpStates={pumpStates} />
+              <MaintenanceCompactWidget
+                lowBatteries={modules
+                  .map((module: Module) => {
+                    const batteryCandidate = latestSensors[module.id]?.battery;
+                    const battery =
+                      typeof batteryCandidate === "number" && Number.isFinite(batteryCandidate)
+                        ? batteryCandidate
+                        : module.battery;
+                    if (typeof battery !== "number" || battery >= 20) return null;
+                    return {
+                      id: module.id,
+                      name: module.name || module.id,
+                      battery: Math.round(battery),
+                      lastSeenLabel: formatRelativeTime(module.lastSeen),
+                    };
+                  })
+                  .filter(
+                    (item: LowBatteryMaintenanceItem | null): item is LowBatteryMaintenanceItem =>
+                      item != null
+                  )}
+              />
+              <AlertsMaterialWidget notifications={notifications} maxItems={4} />
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
-

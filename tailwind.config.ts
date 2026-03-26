@@ -9,12 +9,22 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        body: ["var(--font-body)", "Inter", "system-ui", "sans-serif"],
+        headline: ["var(--font-headline)", "Space Grotesk", "system-ui", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          low: "hsl(var(--surface-container-low))",
+          lowest: "hsl(var(--surface-container-lowest))",
+          highest: "hsl(var(--surface-container-highest))",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",

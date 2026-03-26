@@ -516,104 +516,254 @@ function IrrigationPageContent() {
   }, [selectedFarmId, farms, newZoneName, draftLatLngs, addZone]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Irrigation &amp; Zones</h1>
-          <p className="text-muted-foreground">Édition simplifiée et pilotage direct.</p>
-        </div>
-        {farms.length > 1 ? (
-          <select
-            value={selectedFarmId ?? ""}
-            onChange={(e) => setSelectedFarmId(e.target.value || null)}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="">Tous les espaces</option>
-            {farms.map((farm) => (
-              <option key={farm.id} value={farm.id}>
-                {farm.name}
-              </option>
-            ))}
-          </select>
-        ) : null}
+    <div className="relative h-full w-full">
+      {/* Full-bleed Map */}
+      <div className="absolute inset-0 z-0">
+        <MapView
+          zones={zones}
+          fieldModules={fieldModules}
+          pumpModules={pumpModules}
+          center={center}
+          zoom={selectedZone ? 14 : 6}
+          className="h-full w-full"
+          selectedZoneId={selectedZoneId}
+          onZoneSelect={onZoneSelect}
+          onMapClick={onMapClick}
+          draftLatLngs={draftLatLngs}
+          zoneStyles={zoneMapStyles}
+          pumpStatesByModuleId={pumpStates}
+          pumpValveFillByModuleId={pumpValveFillByModuleId}
+          flowLinks={[]}
+        />
       </div>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[65%,35%]">
-        <div className="min-w-0">
-          <div className="h-[74vh] overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <MapView
-              zones={zones}
-              fieldModules={fieldModules}
-              pumpModules={pumpModules}
-              center={center}
-              zoom={selectedZone ? 14 : 6}
-              className="h-full w-full"
-              selectedZoneId={selectedZoneId}
-              onZoneSelect={onZoneSelect}
-              onMapClick={onMapClick}
-              draftLatLngs={draftLatLngs}
-              zoneStyles={zoneMapStyles}
-              pumpStatesByModuleId={pumpStates}
-              pumpValveFillByModuleId={pumpValveFillByModuleId}
-              flowLinks={[]}
-            />
-          </div>
+      {/* Floating Toolbar (top center) */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 p-1 glass-panel rounded-xl shadow-lg ring-1 ring-border/15">
+        <Button
+          size="sm"
+          variant={isDrawing ? "default" : "ghost"}
+          className="gap-2 font-headline font-bold text-sm"
+          onClick={() => setIsDrawing((p) => !p)}
+        >
+          {isDrawing ? "Stop Draw" : "Draw Zone"}
+        </Button>
+        {isDrawing && (
+          <>
+            <div className="h-6 w-px bg-border/30 mx-1" />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="font-headline font-medium text-sm"
+              onClick={() => setDraftLatLngs((prev) => prev.slice(0, -1))}
+              disabled={draftLatLngs.length === 0}
+            >
+              Undo
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="font-headline font-medium text-sm hover:text-destructive hover:bg-destructive/10"
+              onClick={() => { setIsDrawing(false); setDraftLatLngs([]); }}
+            >
+              Cancel
+            </Button>
+          </>
+        )}
+        {isDrawing && draftLatLngs.length > 0 && (
+          <span className="px-2 text-[10px] font-bold text-muted-foreground">
+            {draftLatLngs.length} pts
+          </span>
+        )}
+      </div>
+
+      {/* Zone creation bar (when drawing & ready to save) */}
+      {isDrawing && draftLatLngs.length >= 3 && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 glass-panel p-2 rounded-xl shadow-lg ring-1 ring-border/15">
+          <Input
+            value={newZoneName}
+            onChange={(e) => setNewZoneName(e.target.value)}
+            placeholder="Zone name…"
+            className="h-8 w-40 text-xs"
+          />
+          <Button
+            size="sm"
+            onClick={saveNewZone}
+            disabled={creatingZone || !newZoneName.trim()}
+            className="text-[10px] uppercase tracking-widest"
+          >
+            {creatingZone ? "…" : "Create"}
+          </Button>
         </div>
+      )}
 
-        <aside className="min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 lg:h-[74vh]">
-          <div className="space-y-3">
-            <p className="text-sm font-semibold">Création &amp; affectation</p>
-            <div className="space-y-2">
-              <Label>Nom de la zone</Label>
-              <Input
-                value={newZoneName}
-                onChange={(e) => setNewZoneName(e.target.value)}
-                placeholder="Ex: Champ de maïs"
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant={isDrawing ? "default" : "outline"} onClick={() => setIsDrawing((p) => !p)}>
-                  {isDrawing ? "Arrêter dessin" : "Dessiner sur la carte"}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={saveNewZone}
-                  disabled={creatingZone || !newZoneName.trim() || draftLatLngs.length < 3}
-                >
-                  {creatingZone ? "Création…" : "+ Nouvelle zone"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setDraftLatLngs((prev) => prev.slice(0, -1))}
-                  disabled={draftLatLngs.length === 0}
-                >
-                  Annuler point
-                </Button>
-              </div>
-              {isDrawing ? (
-                <p className="text-xs text-muted-foreground">Cliquez sur la carte : {draftLatLngs.length} points</p>
-              ) : null}
-            </div>
+      {/* Floating Side Panel (right) — Glass */}
+      <div className="absolute right-4 top-4 bottom-4 w-80 z-20 hidden lg:flex flex-col">
+        <div className="glass-panel h-full flex flex-col rounded-2xl ring-1 ring-border/10 shadow-2xl overflow-hidden">
+          {/* Panel Header */}
+          <div className="p-4 border-b border-border/10 bg-surface-highest/30">
+            {selectedZone ? (
+              <>
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-tighter">
+                    {isZoneActivelyIrrigating(selectedZone, pumpStates) ? "Active Zone" : "Selected Zone"}
+                  </span>
+                  <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setSelectedZoneId(null)}>
+                    Back
+                  </Button>
+                </div>
+                <h2 className="font-headline text-xl font-black tracking-tight">{selectedZone.name}</h2>
+              </>
+            ) : (
+              <>
+                <h2 className="font-headline text-lg font-bold tracking-tight">Irrigation &amp; Zones</h2>
+                <p className="text-xs text-muted-foreground">{zones.length} zones configured</p>
+              </>
+            )}
           </div>
 
-          <div className="my-4 border-t" />
+          {/* Panel Content */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {selectedZone ? (
+              <>
+                {/* Monitoring Grid */}
+                {(() => {
+                  const row = zoneRows.find((r: IrrigationZoneRow) => r.zone.id === selectedZone.id);
+                  const battery = getZoneSensorId(selectedZone)
+                    ? modulesWithGatewayStatus.find((m: Module) => m.id === getZoneSensorId(selectedZone))?.battery
+                    : undefined;
+                  const pid = getPrimaryPumpId(selectedZone);
+                  const pm = pid ? modulesWithGatewayStatus.find((m: Module) => m.id === pid) : null;
+                  return (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl bg-surface-lowest p-3 ring-1 ring-border/5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Soil Tension</p>
+                        <p className="text-lg font-black font-headline text-primary">
+                          {row?.tension != null ? Math.round(row.tension) : "—"} <span className="text-[10px] text-muted-foreground">cb</span>
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-surface-lowest p-3 ring-1 ring-border/5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Humidity</p>
+                        <p className="text-lg font-black font-headline text-primary">
+                          {row?.humidity != null ? Math.round(row.humidity) : "—"} <span className="text-[10px] text-muted-foreground">%</span>
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-surface-lowest p-3 ring-1 ring-border/5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Battery</p>
+                        <p className="text-lg font-black font-headline">
+                          {battery != null ? battery : "—"} <span className="text-[10px] text-muted-foreground">%</span>
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-surface-lowest p-3 ring-1 ring-border/5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Pressure</p>
+                        <p className="text-lg font-black font-headline">
+                          {pm ? formatModulePumpPressure(pm) : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
-          {selectedZone ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-lg font-semibold">{selectedZone.name}</h2>
-                <Button size="sm" variant="outline" onClick={() => setSelectedZoneId(null)}>
-                  Retour zones
-                </Button>
-              </div>
-
-              <div className="rounded-lg border p-3">
-                <p className="mb-2 text-sm font-medium">Matériel associé</p>
+                {/* Irrigation Controls */}
                 <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.1em] text-muted-foreground">Irrigation Control</h3>
+                    <div className="flex rounded-lg bg-surface-low p-0.5">
+                      <button
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${selectedZone.mode !== "auto" ? "bg-white shadow-sm text-primary" : "text-muted-foreground"}`}
+                        onClick={() => updateZone(selectedZone.id, { mode: "manual" })}
+                      >
+                        MANUAL
+                      </button>
+                      <button
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${selectedZone.mode === "auto" ? "bg-white shadow-sm text-primary" : "text-muted-foreground"}`}
+                        onClick={() => updateZone(selectedZone.id, { mode: "auto" })}
+                      >
+                        AUTO
+                      </button>
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const pumpId = getPrimaryPumpId(selectedZone);
+                    const slot = getValveSlot(selectedZone);
+                    const running = isZoneActivelyIrrigating(selectedZone, pumpStates);
+                    const pending =
+                      !!pumpId &&
+                      !!pendingCommand &&
+                      pendingCommand.moduleId === pumpId &&
+                      pendingCommand.status === "pending";
+                    return (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            className="gap-2 py-3 font-headline font-bold text-sm"
+                            disabled={!pumpId || !slot || pending || running}
+                            onClick={() => void startZone(selectedZone)}
+                          >
+                            {pending ? "…" : "Start"}
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            className="gap-2 py-3 font-headline font-bold text-sm"
+                            disabled={!pumpId || pending || !running}
+                            onClick={() => void stopZone(selectedZone)}
+                          >
+                            {pending ? "…" : "Stop"}
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Manual Valve Override</label>
+                          <div className="grid grid-cols-2 gap-1">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="text-[10px] font-bold"
+                              disabled={!pumpId || pending}
+                              onClick={() => void openValvesOnlyZone(selectedZone)}
+                            >
+                              Open Valves
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="text-[10px] font-bold"
+                              disabled={!pumpId || pending}
+                              onClick={() => void closeValvesOnlyZone(selectedZone)}
+                            >
+                              Close Valves
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Timer Options</label>
+                          <div className="flex gap-1">
+                            {[{ m: 30, l: "30m" }, { m: 60, l: "1h" }, { m: 120, l: "2h" }].map(({ m, l }) => (
+                              <button
+                                key={m}
+                                className={`flex-1 py-1.5 rounded text-[10px] font-bold transition-colors ${
+                                  durationMin === m
+                                    ? "bg-primary/10 ring-1 ring-primary/20 text-primary"
+                                    : "ring-1 ring-border/15 text-muted-foreground hover:bg-white"
+                                }`}
+                                onClick={() => setDurationMin(m)}
+                              >
+                                {l}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Equipment Assignment */}
+                <div className="space-y-2">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.1em] text-muted-foreground">Equipment</h3>
                   <div className="space-y-1">
-                    <Label>Capteur</Label>
+                    <Label>Sensor</Label>
                     <select
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      className="flex h-8 w-full rounded-md bg-surface-lowest px-2 text-xs ring-1 ring-border/15 outline-none"
                       value={getZoneSensorId(selectedZone)}
                       onChange={async (e) => {
                         const sensorId = e.target.value;
@@ -624,33 +774,23 @@ function IrrigationPageContent() {
                         }
                       }}
                     >
-                      <option value="">Aucun capteur</option>
+                      <option value="">None</option>
                       {freeSensors.map((m: Module) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name || m.id}
-                        </option>
+                        <option key={m.id} value={m.id}>{m.name || m.id}</option>
                       ))}
                     </select>
                   </div>
-
                   <div className="space-y-1">
-                    <Label>Pompe / vanne</Label>
+                    <Label>Pump / Valve</Label>
                     <select
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      className="flex h-8 w-full rounded-md bg-surface-lowest px-2 text-xs ring-1 ring-border/15 outline-none"
                       value={getZoneValveKey(selectedZone)}
                       onChange={async (e) => {
                         const valveKey = e.target.value;
                         if (!valveKey) {
                           let sectors = cloneSectorsWithoutValveSlot(selectedZone);
                           if (sectors.length === 0) {
-                            sectors = [
-                              {
-                                id: "sector-main",
-                                name: "Secteur principal",
-                                polygon: selectedZone.polygon,
-                                valveModuleIds: [],
-                              },
-                            ];
+                            sectors = [{ id: "sector-main", name: "Secteur principal", polygon: selectedZone.polygon, valveModuleIds: [] }];
                           }
                           await updateZone(selectedZone.id, { pumpModuleIds: [], sectors });
                           return;
@@ -658,218 +798,130 @@ function IrrigationPageContent() {
                         const v = parseValveKey(valveKey);
                         if (!v) return;
                         const sectors = cloneSectorsWithValveSlot(selectedZone, v.slot);
-                        await updateZone(selectedZone.id, {
-                          pumpModuleId: v.pumpId,
-                          pumpModuleIds: [v.pumpId],
-                          sectors,
-                        });
+                        await updateZone(selectedZone.id, { pumpModuleId: v.pumpId, pumpModuleIds: [v.pumpId], sectors });
                         const c = getZoneCenter(selectedZone);
                         if (c) await updateModule(v.pumpId, { position: c });
                       }}
                     >
-                      <option value="">Aucune vanne</option>
+                      <option value="">None</option>
                       {valveOptions.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.label}
-                        </option>
+                        <option key={v.id} value={v.id}>{v.label}</option>
                       ))}
                     </select>
                   </div>
-                  {(() => {
-                    const pid = getPrimaryPumpId(selectedZone);
-                    const pm = pid ? modulesWithGatewayStatus.find((m: Module) => m.id === pid) : null;
+                </div>
+
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="w-full text-[10px] uppercase tracking-widest"
+                  onClick={async () => {
+                    await removeZone(selectedZone.id);
+                    setSelectedZoneId(null);
+                    setNotice("Zone supprimée.");
+                  }}
+                >
+                  Delete Zone
+                </Button>
+              </>
+            ) : (
+              /* Zone List */
+              <div className="space-y-2">
+                {zoneRows.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No zones yet. Draw one on the map.</p>
+                ) : (
+                  zoneRows.map((row: IrrigationZoneRow) => {
+                    const pid = getPrimaryPumpId(row.zone);
+                    const pmod = pid ? modulesWithGatewayStatus.find((m: Module) => m.id === pid) : null;
                     return (
-                      <p className="text-xs text-muted-foreground">
-                        Pression ligne : {pm ? formatModulePumpPressure(pm) : "—"}
-                      </p>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              <div className="rounded-lg border p-3">
-                <p className="text-sm font-medium">Santé du sol</p>
-                {(() => {
-                  const row = zoneRows.find((r: IrrigationZoneRow) => r.zone.id === selectedZone.id);
-                  const battery = getZoneSensorId(selectedZone)
-                    ? modulesWithGatewayStatus.find((m: Module) => m.id === getZoneSensorId(selectedZone))?.battery
-                    : undefined;
-                  const stress = row?.stress ?? 0;
-                  const barClass =
-                    stress >= 70 ? "bg-red-500" : stress >= 40 ? "bg-amber-500" : "bg-emerald-500";
-                  return (
-                    <div className="mt-2 space-y-2 text-sm">
-                      <p>Tension : {row?.tension != null ? `${Math.round(row.tension)} cb` : "—"}</p>
-                      <div className="h-2 rounded-full bg-slate-100">
-                        <div
-                          className={`h-2 rounded-full ${barClass}`}
-                          style={{ width: `${Math.max(8, Math.min(100, stress))}%` }}
-                        />
-                      </div>
-                      <p>Batterie capteur : {battery != null ? `${battery}%` : "—"}</p>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              <div className="rounded-lg border p-3">
-                <p className="text-sm font-medium">Contrôle irrigation</p>
-                {(() => {
-                  const pumpId = getPrimaryPumpId(selectedZone);
-                  const slot = getValveSlot(selectedZone);
-                  const running = isZoneActivelyIrrigating(selectedZone, pumpStates);
-                  const pending =
-                    !!pumpId &&
-                    !!pendingCommand &&
-                    pendingCommand.moduleId === pumpId &&
-                    pendingCommand.status === "pending";
-                  const pumpMod = pumpId
-                    ? modulesWithGatewayStatus.find((m: Module) => m.id === pumpId)
-                    : undefined;
-                  const linkedLabel = pumpId
-                    ? `${pumpMod?.name || pumpId}${
-                        slot
-                          ? slot === "AB"
-                            ? " (Vannes A et B)"
-                            : ` (Vanne ${slot})`
-                          : ""
-                      }`
-                    : "Aucune";
-                  return (
-                    <div className="mt-2 space-y-3">
-                      <p className="text-sm text-muted-foreground">Lié à : {linkedLabel}</p>
-                      {pumpMod ? (
-                        <p className="text-sm font-medium text-foreground">
-                          Pression : {formatModulePumpPressure(pumpMod)}
-                        </p>
-                      ) : null}
-                      <p className="text-xs text-muted-foreground">
-                        Démarrer ouvre d&apos;abord les vannes puis allume la pompe. Stopper coupe
-                        d&apos;abord la pompe puis ferme les vannes.
-                      </p>
-                      <Button
-                        className="w-full"
-                        size="lg"
-                        variant={running ? "destructive" : "default"}
-                        disabled={!pumpId || !slot || pending}
-                        onClick={() => {
-                          void (running ? stopZone(selectedZone) : startZone(selectedZone));
-                        }}
+                      <button
+                        key={row.zone.id}
+                        type="button"
+                        onClick={() => setSelectedZoneId(row.zone.id)}
+                        className="w-full rounded-xl bg-surface-lowest ring-1 ring-border/10 p-3 text-left hover:bg-white transition-colors"
                       >
-                        {pending ? "Envoi…" : running ? "STOPPER" : "DÉMARRER"}
-                      </Button>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!pumpId || pending}
-                          onClick={() => void openValvesOnlyZone(selectedZone)}
-                        >
-                          Vannes ouvertes
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!pumpId || pending}
-                          onClick={() => void closeValvesOnlyZone(selectedZone)}
-                        >
-                          Vannes fermées
-                        </Button>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant={durationMin === 30 ? "default" : "outline"}
-                          onClick={() => setDurationMin(30)}
-                        >
-                          30 min
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={durationMin === 60 ? "default" : "outline"}
-                          onClick={() => setDurationMin(60)}
-                        >
-                          1 h
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={durationMin === 120 ? "default" : "outline"}
-                          onClick={() => setDurationMin(120)}
-                        >
-                          2 h
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })()}
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-bold font-headline">{row.zone.name}</p>
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
+                            row.running
+                              ? "text-primary ring-1 ring-primary/20"
+                              : "text-muted-foreground ring-1 ring-border/15"
+                          }`}>
+                            {row.running ? "Active" : "Standby"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          Tension {row.tension != null ? `${Math.round(row.tension)} cb` : "—"} · Humidity{" "}
+                          {row.humidity != null ? `${Math.round(row.humidity)}%` : "—"}
+                          {pmod ? ` · ${formatModulePumpPressure(pmod)}` : ""}
+                        </p>
+                      </button>
+                    );
+                  })
+                )}
               </div>
+            )}
+          </div>
 
-              <div className="rounded-lg border p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium">Mode auto</p>
-                  <Button
-                    size="sm"
-                    variant={selectedZone.mode === "auto" ? "default" : "outline"}
-                    onClick={() =>
-                      updateZone(selectedZone.id, {
-                        mode: selectedZone.mode === "auto" ? "manual" : "auto",
-                      })
-                    }
-                  >
-                    {selectedZone.mode === "auto" ? "Auto : ON" : "Auto : OFF"}
-                  </Button>
-                </div>
-              </div>
-
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={async () => {
-                  await removeZone(selectedZone.id);
-                  setSelectedZoneId(null);
-                  setNotice("Zone supprimée.");
-                }}
-              >
-                Supprimer la zone
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm font-semibold">Zones</p>
-              {zoneRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucune zone pour le moment.</p>
-              ) : (
-                zoneRows.map((row: IrrigationZoneRow) => {
-                  const pid = getPrimaryPumpId(row.zone);
-                  const pmod = pid ? modulesWithGatewayStatus.find((m: Module) => m.id === pid) : null;
-                  return (
-                    <button
-                      key={row.zone.id}
-                      type="button"
-                      onClick={() => setSelectedZoneId(row.zone.id)}
-                      className="w-full rounded-lg border p-3 text-left hover:bg-slate-50"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium">{row.zone.name}</p>
-                        <span className={`text-xs ${row.running ? "text-indigo-700" : "text-slate-500"}`}>
-                          {row.running ? "En cours" : "À l'arrêt"}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Tension {row.tension != null ? `${Math.round(row.tension)} cb` : "—"} · Humidité{" "}
-                        {row.humidity != null ? `${Math.round(row.humidity)}%` : "—"}
-                        {pmod ? ` · ${formatModulePumpPressure(pmod)}` : ""}
-                      </p>
-                    </button>
-                  );
-                })
-              )}
+          {/* Panel Footer */}
+          {selectedZone && isZoneActivelyIrrigating(selectedZone, pumpStates) && (
+            <div className="p-3 bg-primary text-white flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-widest">System Active</span>
+              <span className="text-[10px] font-bold uppercase bg-white/20 px-2 py-0.5 rounded-full">Nominal</span>
             </div>
           )}
+        </div>
+      </div>
 
-          {notice ? <p className="mt-4 text-xs text-muted-foreground">{notice}</p> : null}
-        </aside>
-      </section>
+      {/* Mobile zone panel (below map) — shown on small screens */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 lg:hidden max-h-[50vh] overflow-y-auto glass-panel rounded-t-2xl ring-1 ring-border/10 p-4 shadow-2xl">
+        {selectedZone ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-headline text-base font-bold">{selectedZone.name}</h2>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedZoneId(null)}>Back</Button>
+            </div>
+            {(() => {
+              const pumpId = getPrimaryPumpId(selectedZone);
+              const slot = getValveSlot(selectedZone);
+              const running = isZoneActivelyIrrigating(selectedZone, pumpStates);
+              const pending =
+                !!pumpId && !!pendingCommand && pendingCommand.moduleId === pumpId && pendingCommand.status === "pending";
+              return (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button disabled={!pumpId || !slot || pending || running} onClick={() => void startZone(selectedZone)}>
+                    Start
+                  </Button>
+                  <Button variant="destructive" disabled={!pumpId || pending || !running} onClick={() => void stopZone(selectedZone)}>
+                    Stop
+                  </Button>
+                </div>
+              );
+            })()}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs font-bold font-headline uppercase tracking-widest text-muted-foreground">Zones</p>
+            {zoneRows.map((row: IrrigationZoneRow) => (
+              <button
+                key={row.zone.id}
+                type="button"
+                onClick={() => setSelectedZoneId(row.zone.id)}
+                className="w-full rounded-lg bg-surface-lowest ring-1 ring-border/10 p-2 text-left"
+              >
+                <p className="text-xs font-bold">{row.zone.name}</p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Notice toast */}
+      {notice && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 glass-panel px-4 py-2 rounded-lg shadow-lg ring-1 ring-border/15">
+          <p className="text-xs font-medium">{notice}</p>
+        </div>
+      )}
     </div>
   );
 }

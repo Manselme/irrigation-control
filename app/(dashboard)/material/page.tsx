@@ -20,10 +20,10 @@ import { formatModulePumpPressure } from "@/lib/pumpPressure";
 type TabId = "all" | "gateway" | "pump" | "field";
 
 const tabs: Array<{ id: TabId; label: string }> = [
-  { id: "all", label: "Toutes" },
-  { id: "gateway", label: "Passerelles" },
-  { id: "pump", label: "Pompes" },
-  { id: "field", label: "Capteurs" },
+  { id: "all", label: "All" },
+  { id: "gateway", label: "Gateways" },
+  { id: "pump", label: "Pumps" },
+  { id: "field", label: "Sensors" },
 ];
 
 export default function MaterialPage() {
@@ -71,41 +71,45 @@ export default function MaterialPage() {
   }, [gateways, modules, tab, removeGateway, removeModule]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Parc Matériel</h1>
-          <p className="text-muted-foreground">
-            Vue technique condensée des passerelles, pompes et capteurs.
-          </p>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-3">
+          <h1 className="font-headline text-3xl font-bold tracking-tight uppercase">Fleet Inventory</h1>
+          <div className="flex gap-1 p-1 bg-surface-low rounded-xl w-fit">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  "px-5 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                  tab === t.id
+                    ? "bg-surface-lowest text-primary shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSheetType("gateway");
-              setSheetOpen(true);
-            }}
-          >
-            + Ajouter passerelle
-          </Button>
-          <Button
-            onClick={() => {
-              setSheetType("module");
-              setSheetOpen(true);
-            }}
-          >
-            + Ajouter module
-          </Button>
-        </div>
+        <Button
+          className="flex items-center gap-2 px-6 py-3 font-bold uppercase tracking-widest text-sm shadow-lg hover:shadow-xl transition-all"
+          onClick={() => {
+            setSheetType("module");
+            setSheetOpen(true);
+          }}
+        >
+          + Add Material
+        </Button>
       </div>
 
       {farms.length === 0 && (
-        <div className="rounded-lg border bg-white p-3">
-          <p className="mb-2 text-sm text-muted-foreground">Créez votre premier espace.</p>
+        <div className="rounded-xl bg-surface-lowest p-5 ring-1 ring-border/10">
+          <p className="mb-3 text-sm text-muted-foreground">Créez votre premier espace pour commencer.</p>
           <div className="flex gap-2">
             <input
-              className="h-9 rounded-md border px-3 text-sm"
+              className="h-9 rounded-lg bg-white px-4 text-sm ring-1 ring-border/15 focus:ring-primary"
               value={farmName}
               onChange={(e) => setFarmName(e.target.value)}
             />
@@ -124,122 +128,198 @@ export default function MaterialPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {tabs.map((t) => (
-          <Button
-            key={t.id}
-            size="sm"
-            variant={tab === t.id ? "default" : "outline"}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </Button>
-        ))}
-      </div>
-
-      <div className="overflow-x-auto rounded-xl border bg-white">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-slate-50">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">Type</th>
-              <th className="px-3 py-2 text-left font-medium">ID</th>
-              <th className="px-3 py-2 text-left font-medium">ID usine / Device</th>
-              <th className="px-3 py-2 text-left font-medium">Batterie</th>
-              <th className="px-3 py-2 text-left font-medium">Pression</th>
-              <th className="px-3 py-2 text-left font-medium">Statut</th>
-              <th className="px-3 py-2 text-left font-medium">Dernière vue</th>
-              <th className="px-3 py-2 text-right font-medium">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={8} className="px-3 py-4 text-muted-foreground">
-                  Chargement…
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-3 py-4 text-muted-foreground">
-                  Aucun équipement pour ce filtre.
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => {
-                const Icon = row.icon;
-                return (
-                  <tr key={`${row.kind}-${row.id}`} className="border-b">
-                    <td className="px-3 py-2">
-                      <span className="inline-flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-slate-600" />
-                        {row.kind === "gateway"
-                          ? "Passerelle"
-                          : row.kind === "pump"
-                            ? "Pompe"
-                            : "Capteur"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 font-mono">{row.id}</td>
-                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{row.factory}</td>
-                    <td className="px-3 py-2">
-                      {row.battery == null ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1",
-                            row.battery < 20 && "text-amber-600"
-                          )}
-                        >
-                          <Battery className="h-4 w-4" />
-                          {row.battery}%
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      {row.kind === "pump" && row.module ? (
-                        <span className="font-medium">{formatModulePumpPressure(row.module)}</span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1",
-                          row.online ? "text-emerald-600" : "text-slate-500"
-                        )}
-                      >
-                        {row.online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-                        {row.online ? "En ligne" : "Hors ligne"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {formatRelativeTime(row.lastSeen)}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        {row.kind === "pump" ? (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => setConfigPumpId(row.id)}
-                            aria-label={`Configurer ${row.id}`}
-                          >
-                            <Settings2 className="h-4 w-4 text-sky-600" />
-                          </Button>
-                        ) : null}
-                        <Button size="icon" variant="ghost" onClick={row.remove} aria-label={`Supprimer ${row.id}`}>
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
+      {/* 12-column grid: Table (8col) + Side panel (4col) */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* Table Section */}
+        <section className="col-span-12 lg:col-span-8 space-y-4">
+          <div className="overflow-hidden rounded-xl bg-surface-low ring-1 ring-border/10">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-highest">
+                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Type</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Device ID</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Factory ID</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Battery</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Pressure</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Status</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Last Seen</th>
+                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/5">
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-6 text-sm text-muted-foreground">
+                      Chargement…
                     </td>
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-6 text-sm text-muted-foreground">
+                      Aucun équipement pour ce filtre.
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row, i) => {
+                    const Icon = row.icon;
+                    return (
+                      <tr
+                        key={`${row.kind}-${row.id}`}
+                        className={cn(
+                          "hover:bg-surface-highest/30 transition-colors cursor-pointer",
+                          i % 2 === 1 && "bg-surface/50"
+                        )}
+                      >
+                        <td className="px-5 py-4">
+                          <Icon className="h-5 w-5 text-muted-foreground" />
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-headline font-bold text-sm">{row.id}</p>
+                        </td>
+                        <td className="px-5 py-4 text-xs font-mono text-muted-foreground">{row.factory}</td>
+                        <td className="px-5 py-4">
+                          {row.battery == null ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="w-12 bg-border/20 h-1.5 rounded-full overflow-hidden">
+                                <div
+                                  className={cn(
+                                    "h-full rounded-full",
+                                    row.battery < 20 ? "bg-destructive" : "bg-primary"
+                                  )}
+                                  style={{ width: `${Math.min(row.battery, 100)}%` }}
+                                />
+                              </div>
+                              <span className={cn(
+                                "text-xs font-bold",
+                                row.battery < 20 ? "text-destructive" : "text-foreground"
+                              )}>
+                                {row.battery}%
+                              </span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 text-xs">
+                          {row.kind === "pump" && "module" in row && row.module ? (
+                            <span className="font-headline font-bold">
+                              {formatModulePumpPressure(row.module)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          {row.online ? (
+                            <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-full inline-flex items-center gap-1">
+                              <Wifi className="h-3 w-3" /> Online
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 bg-surface-highest text-muted-foreground text-[10px] font-bold uppercase tracking-wider rounded-full inline-flex items-center gap-1">
+                              <WifiOff className="h-3 w-3" /> Offline
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 text-xs text-muted-foreground">
+                          {formatRelativeTime(row.lastSeen)}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="inline-flex items-center gap-1">
+                            {row.kind === "pump" ? (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                                onClick={() => setConfigPumpId(row.id)}
+                                aria-label={`Configurer ${row.id}`}
+                              >
+                                <Settings2 className="h-4 w-4 text-primary" />
+                              </Button>
+                            ) : null}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={row.remove}
+                              aria-label={`Supprimer ${row.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          {/* Table footer */}
+          <div className="flex items-center justify-between px-2">
+            <p className="text-xs text-muted-foreground font-medium">
+              Showing {rows.length} device{rows.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </section>
+
+        {/* Side Panel */}
+        <aside className="col-span-12 lg:col-span-4 space-y-6">
+          {/* Quick Add */}
+          <div className="bg-surface-low rounded-2xl p-6 ring-1 ring-border/10">
+            <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground mb-4">Quick Actions</h3>
+            <div className="space-y-3">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 text-xs font-bold uppercase tracking-wider"
+                onClick={() => {
+                  setSheetType("gateway");
+                  setSheetOpen(true);
+                }}
+              >
+                <Radio className="h-4 w-4" />
+                Add Gateway
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 text-xs font-bold uppercase tracking-wider"
+                onClick={() => {
+                  setSheetType("module");
+                  setSheetOpen(true);
+                }}
+              >
+                <Cpu className="h-4 w-4" />
+                Add Module
+              </Button>
+            </div>
+          </div>
+
+          {/* Fleet Stats */}
+          <div className="bg-surface-low rounded-2xl p-6 ring-1 ring-border/10">
+            <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground mb-4">Fleet Overview</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-surface-lowest rounded-lg">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Gateways</p>
+                <p className="text-xl font-bold font-headline">{gateways.length}</p>
+              </div>
+              <div className="p-3 bg-surface-lowest rounded-lg">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Modules</p>
+                <p className="text-xl font-bold font-headline">{modules.length}</p>
+              </div>
+              <div className="p-3 bg-surface-lowest rounded-lg">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Online</p>
+                <p className="text-xl font-bold font-headline text-primary">
+                  {rows.filter((r) => r.online).length}
+                </p>
+              </div>
+              <div className="p-3 bg-surface-lowest rounded-lg">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Offline</p>
+                <p className="text-xl font-bold font-headline text-destructive">
+                  {rows.filter((r) => !r.online).length}
+                </p>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -248,7 +328,7 @@ export default function MaterialPage() {
             <SheetTitle>{sheetType === "gateway" ? "Ajouter une passerelle" : "Ajouter un module"}</SheetTitle>
             <SheetDescription>
               {sheetType === "gateway"
-                ? "Saisissez l’ID de la mère ou scannez son QR."
+                ? "Saisissez l'ID de la mère ou scannez son QR."
                 : "Scannez un QR module ou saisissez son ID usine."}
             </SheetDescription>
           </SheetHeader>
@@ -288,4 +368,3 @@ export default function MaterialPage() {
     </div>
   );
 }
-

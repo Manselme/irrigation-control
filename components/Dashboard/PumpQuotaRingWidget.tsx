@@ -1,7 +1,5 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
 interface PumpQuotaRingWidgetProps {
   weeklyVolumeM3: number;
   quotaM3: number;
@@ -14,9 +12,9 @@ function getRatio(weeklyVolumeM3: number, quotaM3: number): number {
 }
 
 function getRingColor(ratio: number): string {
-  if (ratio >= 0.9) return "stroke-red-500";
-  if (ratio >= 0.7) return "stroke-orange-500";
-  return "stroke-sky-500";
+  if (ratio >= 0.9) return "stroke-destructive";
+  if (ratio >= 0.7) return "stroke-amber-500";
+  return "stroke-primary";
 }
 
 export function PumpQuotaRingWidget({
@@ -30,17 +28,16 @@ export function PumpQuotaRingWidget({
   const circumference = 2 * Math.PI * radius;
   const progress = Math.min(circumference, (percent / 100) * circumference);
   const ringColor = getRingColor(ratio);
-  const isAlert = ratio >= 0.9;
 
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium">Activité pompage & quota</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col items-center gap-3">
-        <div className="relative h-28 w-28">
+    <section className="rounded-xl bg-surface-lowest p-5 ring-1 ring-border/15">
+      <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+        Pump Activity &amp; Quota
+      </h3>
+      <div className="flex items-center gap-5">
+        <div className="relative h-24 w-24 shrink-0">
           <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-            <circle cx="50" cy="50" r={radius} className="stroke-slate-200" strokeWidth="10" fill="none" />
+            <circle cx="50" cy="50" r={radius} className="stroke-surface-low" strokeWidth="10" fill="none" />
             <circle
               cx="50"
               cy="50"
@@ -52,26 +49,20 @@ export function PumpQuotaRingWidget({
               strokeDasharray={`${progress} ${circumference}`}
             />
           </svg>
-          <div className="absolute inset-0 flex items-center justify-center text-center">
-            <div>
-              <p className="text-xl font-semibold">{percent}%</p>
-              <p className="text-[11px] text-muted-foreground">du quota</p>
-            </div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-lg font-headline font-black">{percent}%</span>
           </div>
         </div>
-        <div className="w-full space-y-1 text-sm">
-          <p>
-            <span className="font-medium">{weeklyVolumeM3.toFixed(1)} m³</span> / {quotaM3.toFixed(0)} m³ cette semaine
-          </p>
-          <p>Pompes actives: <span className="font-medium">{livePumpOnCount}</span></p>
-          {isAlert ? (
-            <p className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-red-700">
-              Alerte: quota hebdomadaire atteint a 90%+
-            </p>
-          ) : null}
+        <div className="space-y-1 text-xs">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Weekly Volume</p>
+          <p className="font-headline font-bold text-sm">{weeklyVolumeM3.toFixed(1)} / {quotaM3.toFixed(0)} m³</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-2">Live Pumps</p>
+          <p className="font-headline font-bold text-sm">{livePumpOnCount} active</p>
+          {ratio >= 0.9 && (
+            <p className="mt-1 text-[10px] font-bold text-destructive uppercase">Quota &gt;90%</p>
+          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
-

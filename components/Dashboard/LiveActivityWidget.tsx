@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useSendCommand } from "@/lib/hooks/useCommands";
 import type { Module } from "@/types";
@@ -36,43 +35,51 @@ export function LiveActivityWidget({
   };
 
   return (
-    <Card className="border-border">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium text-muted-foreground">
-          Activité en direct
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {active.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucune irrigation en cours.</p>
-        ) : (
-          <ul className="space-y-3">
-            {active.map((m) => (
-              <li
+    <section className="rounded-xl bg-surface-lowest p-5 ring-1 ring-border/15">
+      <div className="mb-5 flex items-center justify-between">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Live Pump Activity
+        </h3>
+        {active.length > 0 && (
+          <span className="flex items-center gap-1.5 text-[9px] font-bold text-primary">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> SYSTEM LIVE
+          </span>
+        )}
+      </div>
+      {pumpModules.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No pump modules configured.</p>
+      ) : (
+        <div className="space-y-4">
+          {pumpModules.map((m) => {
+            const isActive = pumpStates[m.id]?.pumpOn || pumpStates[m.id]?.valveOpen;
+            return (
+              <div
                 key={m.id}
-                className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+                className={`flex items-center justify-between ${!isActive ? "opacity-40" : ""}`}
               >
                 <div>
-                  <p className="font-medium text-sm">{m.name || `Pompe ${m.id.slice(0, 8)}`}</p>
-                  <p className="text-xs text-muted-foreground">En marche</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {formatModulePumpPressure(m)}
-                  </p>
+                  <p className="text-xs font-bold font-headline">{m.name || `Pump ${m.id.slice(0, 8)}`}</p>
+                  <p className="text-[10px] text-muted-foreground">{formatModulePumpPressure(m)}</p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-destructive/30 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
-                  onClick={() => handleStop(m.id)}
-                >
-                  <Square className="h-3.5 w-3 mr-1" />
-                  Arrêter
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+                {isActive ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[9px] font-black uppercase text-destructive ring-1 ring-destructive/20 hover:bg-destructive/10"
+                    onClick={() => handleStop(m.id)}
+                  >
+                    <Square className="mr-1 h-3 w-3" /> Stop
+                  </Button>
+                ) : (
+                  <span className="text-[9px] font-black text-muted-foreground px-2 py-0.5 ring-1 ring-border/20 rounded">
+                    STANDBY
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }

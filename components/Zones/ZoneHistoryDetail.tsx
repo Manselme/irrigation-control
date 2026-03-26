@@ -12,9 +12,9 @@ import type { DynamicHydricDataPoint } from "@/components/Zones/DynamicHydricCha
 import { ClimateEtpChart } from "@/components/Zones/ClimateEtpChart";
 import { downloadZoneHistoryCsv } from "@/lib/zoneHistoryExport";
 import type { ZoneHistoryExportRow } from "@/lib/zoneHistoryExport";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, ArrowLeft, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { SensorHistoryPoint } from "@/lib/hooks/useSensorHistory";
 import type { Zone, Module } from "@/types";
 
@@ -85,13 +85,16 @@ function aggregateSensorByDay(
   return byDay;
 }
 
+const PERIODS = [
+  { value: "7" as const, label: "7 Days" },
+  { value: "30" as const, label: "30 Days" },
+  { value: "saison" as const, label: "Season" },
+];
+
 export interface ZoneHistoryDetailProps {
   zone: Zone;
-  /** Module pompe de la zone (pour gateways V2) */
   pumpModule?: Module | null;
-  /** Afficher le lien Retour vers /history */
   showBackLink?: boolean;
-  /** Afficher le titre (nom de la zone) dans le bandeau */
   showZoneTitle?: boolean;
 }
 
@@ -256,7 +259,8 @@ export function ZoneHistoryDetail({
   if (!user) return null;
 
   return (
-    <div className="space-y-6 bg-slate-50/50 rounded-lg p-4">
+    <div className="space-y-6">
+      {/* Zone Header + Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           {showBackLink && (
@@ -268,32 +272,52 @@ export function ZoneHistoryDetail({
           )}
           {showZoneTitle && (
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">{zone.name}</h1>
-              <p className="text-sm text-muted-foreground">Historique &amp; analytique</p>
+              <h2 className="font-headline text-lg font-bold uppercase tracking-tight">{zone.name}</h2>
+              <p className="text-xs text-muted-foreground font-medium">Zone History Detail</p>
             </div>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as "7" | "30" | "saison")}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Segmented Period Toggle */}
+          <div className="flex items-center gap-1 bg-surface-low p-1 rounded-lg ring-1 ring-border/10">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={cn(
+                  "px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all",
+                  period === p.value
+                    ? "bg-surface-lowest shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refreshPumpActivity()}
+            className="gap-1.5 text-[10px] font-bold uppercase tracking-widest"
+            title="Refresh data"
           >
-            <option value="7">7 derniers jours</option>
-            <option value="30">30 derniers jours</option>
-            <option value="saison">Saison en cours</option>
-          </select>
-          <Button variant="outline" size="default" onClick={() => refreshPumpActivity()} className="gap-2" title="Récupérer les dernières données (irrigation, capteurs)">
-            <RefreshCw className="h-4 w-4" />
-            Rafraîchir
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
           </Button>
-          <Button variant="outline" size="default" onClick={handleExport} className="gap-2">
-            <Download className="h-4 w-4" />
-            Exporter (CSV)
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            className="gap-1.5 text-[10px] font-bold uppercase tracking-widest"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export CSV
           </Button>
         </div>
       </div>
 
+      {/* KPI Bento Grid */}
       <ZoneHistoryKPIs
         volumeIrrigation={kpis.volumeIrrigation}
         irrigationUnit={kpis.irrigationUnit}
@@ -304,25 +328,49 @@ export function ZoneHistoryDetail({
         irrigationAujourdhui={kpis.irrigationAujourdhui}
       />
 
-      <Card className="border-border">
-        <CardContent className="pt-6">
+      {/* Trend Analysis Chart */}
+      <section className="bg-surface-low rounded-2xl p-6 ring-1 ring-border/10">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="font-headline text-lg font-bold uppercase tracking-tight">Trend Analysis</h3>
+            <p className="text-xs text-muted-foreground font-medium">
+              Soil Tension (cb) vs Irrigation Events ({kpis.irrigationUnit === "m3" ? "m³" : "min"})
+            </p>
+          </div>
+          <div className="hidden sm:flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-blue-500" />
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Tension</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-primary" />
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Irrigation</span>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl bg-surface-lowest overflow-hidden">
           <DynamicHydricChart
             data={hydricData}
             irrigationUnit={kpis.irrigationUnit}
             todayDate={todayStr}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card className="border-border">
-        <CardContent className="pt-6">
+      {/* Climate & ET Chart */}
+      <section className="bg-surface-low rounded-2xl p-6 ring-1 ring-border/10">
+        <div className="mb-6">
+          <h3 className="font-headline text-lg font-bold uppercase tracking-tight">Climate &amp; Evapotranspiration</h3>
+          <p className="text-xs text-muted-foreground font-medium">Temperature, rain, and ET0 over the period</p>
+        </div>
+        <div className="rounded-xl bg-surface-lowest overflow-hidden">
           {weatherLoading ? (
-            <p className="text-sm text-muted-foreground">Chargement climat…</p>
+            <p className="p-6 text-sm text-muted-foreground">Loading climate data…</p>
           ) : (
             <ClimateEtpChart data={weatherDaily} todayDate={todayStr} />
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

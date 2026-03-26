@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { CheckCircle2 } from "lucide-react";
 
 export interface CriticalZoneItem {
   zoneId: string;
@@ -14,53 +14,55 @@ interface TopCriticalZonesWidgetProps {
   zones: CriticalZoneItem[];
 }
 
-function getProgress(tensionCb: number): number {
-  return Math.max(0, Math.min(100, Math.round((tensionCb / 200) * 100)));
+function getBarColor(tensionCb: number): string {
+  if (tensionCb >= 60) return "bg-destructive";
+  if (tensionCb >= 30) return "bg-amber-500";
+  return "bg-primary";
 }
 
-function getProgressColor(progress: number): string {
-  if (progress >= 75) return "bg-red-500";
-  if (progress >= 45) return "bg-orange-500";
-  return "bg-emerald-500";
+function getBarLabel(tensionCb: number): string {
+  return `${Math.round(tensionCb)} CB`;
 }
 
 export function TopCriticalZonesWidget({ zones }: TopCriticalZonesWidgetProps) {
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium">Top 3 zones critiques</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {zones.length === 0 ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-            Tout est sous contrôle. Aucune zone critique détectée.
-          </div>
-        ) : (
-          zones.map((zone, idx) => {
-            const progress = getProgress(zone.tensionCb);
+    <section className="h-full rounded-xl bg-surface-lowest p-5 ring-1 ring-border/15">
+      <h3 className="mb-5 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+        Top Stress Zones
+      </h3>
+      {zones.length === 0 ? (
+        <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-4 text-sm text-primary">
+          <CheckCircle2 className="h-4 w-4" />
+          All zones under control. No critical stress detected.
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {zones.map((zone) => {
+            const pct = Math.max(5, Math.min(100, Math.round((zone.tensionCb / 100) * 100)));
             return (
-              <div key={zone.zoneId} className="rounded-lg border p-3">
-                <div className="mb-2 flex items-center justify-between text-sm">
-                  <p className="font-medium">
-                    {idx + 1}. {zone.zoneName}
-                  </p>
-                  <p className="text-muted-foreground">{Math.round(zone.tensionCb)} cb</p>
+              <div key={zone.zoneId}>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-xs font-bold font-headline">{zone.zoneName}</span>
+                  <span className={`text-[10px] font-black ${zone.tensionCb >= 60 ? "text-destructive" : zone.tensionCb >= 30 ? "text-amber-600" : "text-primary"}`}>
+                    {getBarLabel(zone.tensionCb)}
+                  </span>
                 </div>
-                <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-low">
                   <div
-                    className={`h-full ${getProgressColor(progress)}`}
-                    style={{ width: `${progress}%` }}
+                    className={`h-full rounded-full ${getBarColor(zone.tensionCb)}`}
+                    style={{ width: `${pct}%` }}
                   />
                 </div>
-                <Button asChild size="sm" className="w-full">
-                  <Link href={`/irrigation?zone=${encodeURIComponent(zone.zoneId)}`}>Irriguer</Link>
-                </Button>
+                <div className="mt-2">
+                  <Button asChild size="sm" className="w-full text-[10px] uppercase tracking-widest">
+                    <Link href={`/irrigation?zone=${encodeURIComponent(zone.zoneId)}`}>Start Irrigation</Link>
+                  </Button>
+                </div>
               </div>
             );
-          })
-        )}
-      </CardContent>
-    </Card>
+          })}
+        </div>
+      )}
+    </section>
   );
 }
-
