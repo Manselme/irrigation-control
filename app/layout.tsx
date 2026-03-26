@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
-import "./globals.css";
+import "../globals.css";
 
 export const metadata: Metadata = {
   title: "Contrôle d'irrigation intelligent",
