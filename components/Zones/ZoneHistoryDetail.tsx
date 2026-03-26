@@ -15,6 +15,7 @@ import type { ZoneHistoryExportRow } from "@/lib/zoneHistoryExport";
 import { Button } from "@/components/ui/button";
 import { Download, ArrowLeft, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getPumpFlowRateLitersPerMinute, pumpDayToLiters } from "@/lib/waterVolume";
 import type { SensorHistoryPoint } from "@/lib/hooks/useSensorHistory";
 import type { Zone, Module } from "@/types";
 
@@ -123,7 +124,7 @@ export function ZoneHistoryDetail({
   const lng = center?.lng ?? 1.9;
 
   const firstFieldId = zone.fieldModuleIds?.[0];
-  const pumpId = zone.pumpModuleId ?? undefined;
+  const pumpId = pumpModule?.id ?? zone.pumpModuleId ?? undefined;
 
   const sensorPoints = useSensorHistory(user?.uid, firstFieldId ?? undefined, bounds.days);
   const pumpGatewayOpts =
@@ -152,6 +153,7 @@ export function ZoneHistoryDetail({
   );
 
   const combinedData = useMemo(() => {
+    const flowRate = getPumpFlowRateLitersPerMinute(pumpModule);
     const dates = new Set<string>();
     for (let d = new Date(bounds.start); d <= new Date(bounds.end); d.setDate(d.getDate() + 1)) {
       dates.add(d.toISOString().slice(0, 10));
@@ -163,8 +165,7 @@ export function ZoneHistoryDetail({
       const p = pumpDays.find((d) => d.date === date);
       const w = weatherDaily.find((d) => d.date === date);
       const s = sensorByDay.get(date);
-      const hasVolume = p?.volume_m3 != null && p.volume_m3 > 0;
-      const irrigationValue = hasVolume ? (p?.volume_m3 ?? 0) : (p?.minutesOn ?? 0);
+      const irrigationValue = pumpDayToLiters(p, flowRate);
       const tensionArr = s?.tension_cb ?? [];
       const h10 = s?.humidity_10cm ?? [];
       const h30 = s?.humidity_30cm ?? [];
@@ -180,19 +181,14 @@ export function ZoneHistoryDetail({
         humidity: h.length > 0 ? h.reduce((a, b) => a + b, 0) / h.length : null,
       };
     });
-  }, [pumpDays, weatherDaily, sensorByDay, bounds]);
+  }, [pumpDays, weatherDaily, sensorByDay, bounds, pumpModule]);
 
   const kpis = useMemo(() => {
-    let volumeIrrigation = 0;
-    let hasVolume = false;
+    const flowRate = getPumpFlowRateLitersPerMinute(pumpModule);
+    let volumeIrrigationLiters = 0;
     combinedData.forEach((d) => {
       const p = pumpDays.find((x) => x.date === d.date);
-      if (p?.volume_m3 != null && p.volume_m3 > 0) {
-        volumeIrrigation += p.volume_m3;
-        hasVolume = true;
-      } else if (p?.minutesOn != null) {
-        volumeIrrigation += p.minutesOn;
-      }
+      volumeIrrigationLiters += pumpDayToLiters(p, flowRate);
     });
     const pluviometrieMm = combinedData.reduce((s, d) => s + d.pluieMm, 0);
     const tensionValues = combinedData.map((d) => d.tension_cb).filter((v): v is number => v != null);
@@ -204,42 +200,39 @@ export function ZoneHistoryDetail({
     const bilanHydrique = pluviometrieMm - etpSum;
 
     const todayPump = pumpDays.find((p) => p.date === todayStr);
-    const defaultUnit = (hasVolume ? "m3" : "min") as "m3" | "min";
-    const irrigationAujourdhui = todayPump
-      ? {
-          value: (todayPump.volume_m3 != null && todayPump.volume_m3 > 0)
-            ? todayPump.volume_m3
-            : (todayPump.minutesOn ?? 0),
-          unit: (todayPump.volume_m3 != null && todayPump.volume_m3 > 0 ? "m3" : "min") as "m3" | "min",
-        }
-      : { value: 0, unit: defaultUnit };
+    const irrigationAujourdhui = {
+      value: pumpDayToLiters(todayPump, flowRate),
+      unit: "L" as const,
+    };
 
     return {
-      volumeIrrigation,
-      irrigationUnit: (hasVolume ? "m3" : "min") as "m3" | "min",
+      volumeIrrigation: volumeIrrigationLiters,
+      irrigationUnit: "L" as const,
       pluviometrieMm,
       tensionMoyenne,
       tensionTrend: null as "up" | "down" | null,
       bilanHydrique,
       irrigationAujourdhui,
     };
-  }, [combinedData, pumpDays, weatherDaily]);
+  }, [combinedData, pumpDays, weatherDaily, pumpModule, todayStr]);
 
   const exportRows: ZoneHistoryExportRow[] = useMemo(
-    () =>
-      combinedData.map((d) => {
+    () => {
+      const flowRate = getPumpFlowRateLitersPerMinute(pumpModule);
+      return combinedData.map((d) => {
         const p = pumpDays.find((x) => x.date === d.date);
         return {
           date: d.date,
           zoneName: zone.name ?? "",
           pluviometrie_mm: d.pluieMm,
-          irrigation_m3: p?.volume_m3 ?? 0,
+          irrigation_liters: pumpDayToLiters(p, flowRate),
           tension_sol_cb: d.tension_cb,
           humidite_10cm_pct: d.humidity_10cm,
           humidite_30cm_pct: d.humidity_30cm,
         };
-      }),
-    [combinedData, pumpDays, zone.name]
+      });
+    },
+    [combinedData, pumpDays, zone.name, pumpModule]
   );
 
   const handleExport = () => {
@@ -334,7 +327,7 @@ export function ZoneHistoryDetail({
           <div>
             <h3 className="font-headline text-lg font-bold uppercase tracking-tight">Trend Analysis</h3>
             <p className="text-xs text-muted-foreground font-medium">
-              Soil Tension (cb) vs Irrigation Events ({kpis.irrigationUnit === "m3" ? "m³" : "min"})
+              Soil Tension (cb) vs Irrigation ({kpis.irrigationUnit === "L" ? "L" : "min"})
             </p>
           </div>
           <div className="hidden sm:flex items-center gap-4">

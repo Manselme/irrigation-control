@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { DashboardMain } from "@/components/layout/DashboardMain";
+import { SidebarLayoutProvider } from "@/components/layout/sidebar-layout";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopAppBar } from "@/components/layout/TopAppBar";
 import { useAlertConfig } from "@/lib/hooks/useAlerts";
@@ -48,20 +50,14 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-surface">
-      <OfflineBanner />
-      <AutoPumpStopOnLowPressure userId={user.uid} config={config} modules={modules} />
-      <Sidebar />
-      <TopAppBar />
-      {isFullCanvas ? (
-        <main className="relative h-screen w-full min-w-0 overflow-hidden bg-surface-low pt-16 lg:pl-64">
-          {children}
-        </main>
-      ) : (
-        <main className="min-h-screen w-full min-w-0 pt-20 pb-20 pl-4 pr-4 sm:px-6 lg:ml-64 lg:pb-12">
-          {children}
-        </main>
-      )}
-    </div>
+    <SidebarLayoutProvider>
+      <div className="min-h-screen w-full min-w-0 bg-surface">
+        <OfflineBanner />
+        <AutoPumpStopOnLowPressure userId={user.uid} config={config} modules={modules} />
+        <Sidebar />
+        <TopAppBar />
+        <DashboardMain isFullCanvas={isFullCanvas}>{children}</DashboardMain>
+      </div>
+    </SidebarLayoutProvider>
   );
 }

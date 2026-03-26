@@ -17,9 +17,10 @@ export default function ZoneHistoryPage() {
   const { zones } = useZones(user?.uid, null);
   const { modules } = useModules(user?.uid);
   const zone = useMemo(() => zones.find((z) => z.id === zoneId), [zones, zoneId]);
+  const primaryPumpId = zone?.pumpModuleId ?? zone?.pumpModuleIds?.[0] ?? null;
   const pumpModule = useMemo(
-    () => (zone?.pumpModuleId ? modules.find((m) => m.id === zone.pumpModuleId) ?? null : null),
-    [zone?.pumpModuleId, modules]
+    () => (primaryPumpId ? modules.find((m) => m.id === primaryPumpId) ?? null : null),
+    [primaryPumpId, modules]
   );
 
   useEffect(() => {

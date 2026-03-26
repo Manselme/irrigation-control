@@ -5,13 +5,13 @@ import { Radio, AlertTriangle, Droplets } from "lucide-react";
 interface HealthBarBadgesProps {
   networkIncidents: number;
   dryZonesCount: number;
-  weeklyVolumeM3: number;
+  weeklyVolumeLiters: number;
 }
 
 export function HealthBarBadges({
   networkIncidents,
   dryZonesCount,
-  weeklyVolumeM3,
+  weeklyVolumeLiters,
 }: HealthBarBadgesProps) {
   return (
     <div className="mb-6 flex flex-wrap gap-3">
@@ -40,7 +40,7 @@ export function HealthBarBadges({
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Volume</p>
           <p className="text-sm font-headline font-bold">
-            {weeklyVolumeM3.toFixed(1)} m³
+            {Math.round(weeklyVolumeLiters).toLocaleString("fr-FR")} L
           </p>
         </div>
       </div>

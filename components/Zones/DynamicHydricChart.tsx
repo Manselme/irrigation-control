@@ -17,7 +17,7 @@ import {
 export interface DynamicHydricDataPoint {
   date: string;
   pluieMm: number;
-  /** Valeur affichée en barre (mm, m³ ou minutes selon irrigationUnit) */
+  /** Valeur affichée en barre (mm, L ou minutes selon irrigationUnit) */
   irrigationValue: number;
   tension_cb: number | null;
   humidity_10cm: number | null;
@@ -28,7 +28,7 @@ export interface DynamicHydricDataPoint {
 
 const SERIES_DESCRIPTIONS: Record<string, string> = {
   pluieMm: "Précipitations naturelles (mm). Source : météo.",
-  irrigationBar: "Eau apportée par la pompe (mm, m³ ou min selon capteur).",
+  irrigationBar: "Eau apportée par la pompe (mm, L ou min selon la série).",
   tension_cb: "Stress hydrique du sol en centibars. Zone 10–30 cb = confort de la plante.",
   humidity_10cm: "Humidité du sol à -10 cm (%). Superficielle.",
   humidity_30cm: "Humidité du sol à -30 cm (%). Profonde.",
@@ -37,8 +37,8 @@ const SERIES_DESCRIPTIONS: Record<string, string> = {
 
 interface DynamicHydricChartProps {
   data: DynamicHydricDataPoint[];
-  /** Unité de la barre irrigation : "mm" | "m3" | "min" */
-  irrigationUnit?: "mm" | "m3" | "min";
+  /** Unité de la barre irrigation : "mm" | "L" | "min" */
+  irrigationUnit?: "mm" | "L" | "min";
   /** Date du jour (YYYY-MM-DD) pour afficher "Du jour" dans le tooltip et la ligne de référence */
   todayDate?: string;
 }
@@ -49,7 +49,7 @@ export function DynamicHydricChart({
   todayDate,
 }: DynamicHydricChartProps) {
   const irrigationLabel =
-    irrigationUnit === "m3" ? "Irrigation (m³)" : irrigationUnit === "min" ? "Irrigation (min)" : "Irrigation (mm)";
+    irrigationUnit === "L" ? "Irrigation (L)" : irrigationUnit === "min" ? "Irrigation (min)" : "Irrigation (mm)";
   const chartData = data.map((d) => ({
     ...d,
     irrigationBar: d.irrigationValue,

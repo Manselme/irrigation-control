@@ -1,14 +1,15 @@
 "use client";
 
 interface PumpQuotaRingWidgetProps {
-  weeklyVolumeM3: number;
-  quotaM3: number;
+  weeklyVolumeLiters: number;
+  /** Quota hebdo en litres (ex. 150 000 L ≈ ancien 150 m³). */
+  quotaLiters: number;
   livePumpOnCount: number;
 }
 
-function getRatio(weeklyVolumeM3: number, quotaM3: number): number {
-  if (quotaM3 <= 0) return 0;
-  return Math.max(0, weeklyVolumeM3 / quotaM3);
+function getRatio(weeklyVolumeLiters: number, quotaLiters: number): number {
+  if (quotaLiters <= 0) return 0;
+  return Math.max(0, weeklyVolumeLiters / quotaLiters);
 }
 
 function getRingColor(ratio: number): string {
@@ -18,11 +19,11 @@ function getRingColor(ratio: number): string {
 }
 
 export function PumpQuotaRingWidget({
-  weeklyVolumeM3,
-  quotaM3,
+  weeklyVolumeLiters,
+  quotaLiters,
   livePumpOnCount,
 }: PumpQuotaRingWidgetProps) {
-  const ratio = getRatio(weeklyVolumeM3, quotaM3);
+  const ratio = getRatio(weeklyVolumeLiters, quotaLiters);
   const percent = Math.min(100, Math.round(ratio * 100));
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
@@ -55,7 +56,10 @@ export function PumpQuotaRingWidget({
         </div>
         <div className="space-y-1 text-xs">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Weekly Volume</p>
-          <p className="font-headline font-bold text-sm">{weeklyVolumeM3.toFixed(1)} / {quotaM3.toFixed(0)} m³</p>
+          <p className="font-headline font-bold text-sm">
+            {Math.round(weeklyVolumeLiters).toLocaleString("fr-FR")} /{" "}
+            {Math.round(quotaLiters).toLocaleString("fr-FR")} L
+          </p>
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-2">Live Pumps</p>
           <p className="font-headline font-bold text-sm">{livePumpOnCount} active</p>
           {ratio >= 0.9 && (

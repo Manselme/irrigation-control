@@ -5,12 +5,12 @@ import { cn } from "@/lib/utils";
 
 export interface ZoneHistoryKPIsProps {
   volumeIrrigation: number;
-  irrigationUnit: "m3" | "min";
+  irrigationUnit: "L" | "min";
   pluviometrieMm: number;
   tensionMoyenne: number | null;
   tensionTrend?: "up" | "down" | null;
   bilanHydrique: number | null;
-  irrigationAujourdhui?: { value: number; unit: "m3" | "min" } | null;
+  irrigationAujourdhui?: { value: number; unit: "L" | "min" } | null;
 }
 
 export function ZoneHistoryKPIs({
@@ -22,10 +22,9 @@ export function ZoneHistoryKPIs({
   bilanHydrique,
   irrigationAujourdhui,
 }: ZoneHistoryKPIsProps) {
-  const fmtVol = (v: number, unit: "m3" | "min" = irrigationUnit) =>
-    unit === "m3" ? v.toFixed(1) : String(Math.round(v));
-  const unitLabel = (unit: "m3" | "min" = irrigationUnit) =>
-    unit === "m3" ? "m³" : "min";
+  const fmtVol = (v: number, unit: "L" | "min" = irrigationUnit) =>
+    unit === "L" ? Math.round(v).toLocaleString("fr-FR") : String(Math.round(v));
+  const unitLabel = (unit: "L" | "min" = irrigationUnit) => (unit === "L" ? "L" : "min");
 
   const todayVal = irrigationAujourdhui
     ? fmtVol(irrigationAujourdhui.value, irrigationAujourdhui.unit)

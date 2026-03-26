@@ -516,7 +516,7 @@ function IrrigationPageContent() {
   }, [selectedFarmId, farms, newZoneName, draftLatLngs, addZone]);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full min-w-0 max-w-full overflow-hidden">
       {/* Full-bleed Map */}
       <div className="absolute inset-0 z-0">
         <MapView

@@ -35,7 +35,7 @@ export default function AlertsPage() {
   const criticalCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 max-w-full space-y-8">
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight uppercase">

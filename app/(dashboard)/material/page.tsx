@@ -73,18 +73,18 @@ export default function MaterialPage() {
   }, [gateways, modules, tab, removeGateway, removeModule]);
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 max-w-full space-y-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="space-y-3">
           <h1 className="font-headline text-3xl font-bold tracking-tight uppercase">Fleet Inventory</h1>
-          <div className="flex gap-1 p-1 bg-surface-low rounded-xl w-fit">
+          <div className="flex max-w-full flex-wrap gap-1 rounded-xl bg-surface-low p-1">
             {tabs.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  "px-5 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                  "shrink-0 px-3 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all sm:px-5",
                   tab === t.id
                     ? "bg-surface-lowest text-primary shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -96,7 +96,7 @@ export default function MaterialPage() {
           </div>
         </div>
         <Button
-          className="flex items-center gap-2 px-6 py-3 font-bold uppercase tracking-widest text-sm shadow-lg hover:shadow-xl transition-all"
+          className="flex w-full shrink-0 items-center justify-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-widest shadow-lg transition-all hover:shadow-xl sm:w-auto sm:px-6 sm:text-sm"
           onClick={() => {
             setSheetType("module");
             setSheetOpen(true);
@@ -131,21 +131,37 @@ export default function MaterialPage() {
       )}
 
       {/* 12-column grid: Table (8col) + Side panel (4col) */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid min-w-0 grid-cols-12 gap-6">
         {/* Table Section */}
-        <section className="col-span-12 lg:col-span-8 space-y-4">
-          <div className="overflow-hidden rounded-xl bg-surface-low ring-1 ring-border/10">
-            <table className="w-full text-left border-collapse">
+        <section className="col-span-12 min-w-0 space-y-4 lg:col-span-8">
+          <div className="w-full min-w-0 max-w-full overflow-hidden rounded-xl bg-surface-low ring-1 ring-border/10">
+            <table className="w-full table-fixed border-collapse text-left">
               <thead>
                 <tr className="bg-surface-highest">
-                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Type</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Device ID</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Factory ID</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Battery</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Pressure</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Status</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground">Last Seen</th>
-                  <th className="px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.15em] text-muted-foreground text-right">Action</th>
+                  <th className="w-10 px-2 py-3 text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground sm:px-3 sm:py-4 sm:text-[10px] sm:tracking-[0.15em]">
+                    Type
+                  </th>
+                  <th className="min-w-0 px-2 py-3 text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground sm:px-3 sm:py-4 sm:text-[10px] sm:tracking-[0.15em]">
+                    Device ID
+                  </th>
+                  <th className="hidden min-w-0 px-2 py-3 text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground sm:table-cell sm:px-3 sm:py-4 sm:text-[10px] sm:tracking-[0.15em]">
+                    Factory ID
+                  </th>
+                  <th className="w-[72px] px-1 py-3 text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground sm:w-auto sm:px-3 sm:py-4 sm:text-[10px] sm:tracking-[0.15em]">
+                    Battery
+                  </th>
+                  <th className="hidden w-[4.5rem] px-1 py-3 text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground md:table-cell md:px-3 md:py-4 md:text-[10px] md:tracking-[0.15em]">
+                    Pressure
+                  </th>
+                  <th className="min-w-0 px-1 py-3 text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground sm:px-3 sm:py-4 sm:text-[10px] sm:tracking-[0.15em]">
+                    Status
+                  </th>
+                  <th className="hidden min-w-0 px-1 py-3 text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground lg:table-cell lg:px-3 lg:py-4 lg:text-[10px] lg:tracking-[0.15em]">
+                    Last Seen
+                  </th>
+                  <th className="w-[72px] px-1 py-3 text-right text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground sm:w-[88px] sm:px-3 sm:py-4 sm:text-[10px] sm:tracking-[0.15em]">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/5">
@@ -172,19 +188,25 @@ export default function MaterialPage() {
                           i % 2 === 1 && "bg-surface/50"
                         )}
                       >
-                        <td className="px-5 py-4">
-                          <Icon className="h-5 w-5 text-muted-foreground" />
+                        <td className="px-2 py-2 sm:px-3 sm:py-4">
+                          <Icon className="h-4 w-4 text-muted-foreground sm:h-5 sm:w-5" />
                         </td>
-                        <td className="px-5 py-4">
-                          <p className="font-headline font-bold text-sm">{row.id}</p>
+                        <td className="min-w-0 px-2 py-2 sm:px-3 sm:py-4">
+                          <p className="truncate font-headline text-xs font-bold sm:text-sm" title={row.id}>
+                            {row.id}
+                          </p>
                         </td>
-                        <td className="px-5 py-4 text-xs font-mono text-muted-foreground">{row.factory}</td>
-                        <td className="px-5 py-4">
+                        <td className="hidden min-w-0 px-2 py-2 text-xs font-mono text-muted-foreground sm:table-cell sm:px-3 sm:py-4">
+                          <span className="block truncate" title={String(row.factory)}>
+                            {row.factory}
+                          </span>
+                        </td>
+                        <td className="px-1 py-2 sm:px-3 sm:py-4">
                           {row.battery == null ? (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <span className="text-[10px] text-muted-foreground sm:text-xs">—</span>
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <div className="w-12 bg-border/20 h-1.5 rounded-full overflow-hidden">
+                            <div className="flex flex-col items-stretch gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+                              <div className="hidden h-1.5 w-full min-w-[2rem] overflow-hidden rounded-full bg-border/20 sm:block sm:w-12">
                                 <div
                                   className={cn(
                                     "h-full rounded-full",
@@ -193,39 +215,49 @@ export default function MaterialPage() {
                                   style={{ width: `${Math.min(row.battery, 100)}%` }}
                                 />
                               </div>
-                              <span className={cn(
-                                "text-xs font-bold",
-                                row.battery < 20 ? "text-destructive" : "text-foreground"
-                              )}>
+                              <span
+                                className={cn(
+                                  "text-[10px] font-bold sm:text-xs",
+                                  row.battery < 20 ? "text-destructive" : "text-foreground"
+                                )}
+                              >
                                 {row.battery}%
                               </span>
                             </div>
                           )}
                         </td>
-                        <td className="px-5 py-4 text-xs">
+                        <td className="hidden px-1 py-2 text-[10px] md:table-cell md:px-3 md:py-4 md:text-xs">
                           {row.kind === "pump" && "module" in row && row.module ? (
-                            <span className="font-headline font-bold">
+                            <span className="block truncate font-headline font-bold" title={formatModulePumpPressure(row.module)}>
                               {formatModulePumpPressure(row.module)}
                             </span>
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="min-w-0 px-1 py-2 sm:px-3 sm:py-4">
                           {row.online ? (
-                            <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-full inline-flex items-center gap-1">
-                              <Wifi className="h-3 w-3" /> Online
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary sm:gap-1 sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-wider"
+                              title="Online"
+                            >
+                              <Wifi className="h-3 w-3 shrink-0" />
+                              <span className="hidden sm:inline">Online</span>
                             </span>
                           ) : (
-                            <span className="px-3 py-1 bg-surface-highest text-muted-foreground text-[10px] font-bold uppercase tracking-wider rounded-full inline-flex items-center gap-1">
-                              <WifiOff className="h-3 w-3" /> Offline
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded-full bg-surface-highest px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:gap-1 sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-wider"
+                              title="Offline"
+                            >
+                              <WifiOff className="h-3 w-3 shrink-0" />
+                              <span className="hidden sm:inline">Offline</span>
                             </span>
                           )}
                         </td>
-                        <td className="px-5 py-4 text-xs text-muted-foreground">
-                          {formatRelativeTime(row.lastSeen)}
+                        <td className="hidden min-w-0 px-1 py-2 text-[10px] text-muted-foreground lg:table-cell lg:px-3 lg:py-4 lg:text-xs">
+                          <span className="block truncate">{formatRelativeTime(row.lastSeen)}</span>
                         </td>
-                        <td className="px-5 py-4 text-right">
+                        <td className="px-1 py-2 text-right sm:px-3 sm:py-4">
                           <div className="inline-flex items-center gap-1">
                             {row.kind === "pump" ? (
                               <Button
@@ -275,7 +307,7 @@ export default function MaterialPage() {
         </section>
 
         {/* Side Panel */}
-        <aside className="col-span-12 lg:col-span-4 space-y-6">
+        <aside className="col-span-12 min-w-0 space-y-6 lg:col-span-4">
           {/* Quick Add */}
           <div className="bg-surface-low rounded-2xl p-6 ring-1 ring-border/10">
             <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground mb-4">Quick Actions</h3>

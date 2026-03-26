@@ -7,7 +7,8 @@ export interface ZoneHistoryExportRow {
   date: string;
   zoneName: string;
   pluviometrie_mm: number;
-  irrigation_m3: number;
+  /** Volume d’irrigation estimé ou mesuré, en litres. */
+  irrigation_liters: number;
   tension_sol_cb: number | null;
   humidite_10cm_pct: number | null;
   humidite_30cm_pct: number | null;
@@ -23,14 +24,14 @@ function escapeCsvCell(value: string | number | null): string {
 }
 
 export function buildZoneHistoryCsv(rows: ZoneHistoryExportRow[]): string {
-  const header = "Date,Zone,Pluviometrie_mm,Irrigation_m3,Tension_Sol_cb,Humidite_10cm_%,Humidite_30cm_%";
+  const header = "Date,Zone,Pluviometrie_mm,Irrigation_litres,Tension_Sol_cb,Humidite_10cm_%,Humidite_30cm_%";
   const lines = rows.map(
     (r) =>
       [
         r.date,
         escapeCsvCell(r.zoneName),
         r.pluviometrie_mm,
-        r.irrigation_m3,
+        r.irrigation_liters,
         r.tension_sol_cb ?? "",
         r.humidite_10cm_pct ?? "",
         r.humidite_30cm_pct ?? "",

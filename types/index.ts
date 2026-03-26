@@ -31,6 +31,8 @@ export interface Module {
   hydraulicSettings?: {
     pipeDiameterMm?: number;
     referencePressureBar?: number;
+    /** Débit nominal (L/min) pour estimer le volume à partir du temps de marche si pas de volume_m3. */
+    flowRateLitersPerMinute?: number;
     updatedAt?: number;
   };
   /** V2.2: vannes logiques d'un module pompe. */

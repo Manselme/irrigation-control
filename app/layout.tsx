@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className={`${fontBody.variable} ${fontHeadline.variable} light`}>
-      <body className="min-h-screen antialiased font-body">{children}</body>
+      <body className="min-h-screen w-full min-w-0 antialiased font-body">{children}</body>
     </html>
   );
 }

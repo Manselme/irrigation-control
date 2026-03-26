@@ -57,8 +57,14 @@ export default function HistoryPage() {
     [zones, selectedZoneId]
   );
 
+  const primaryPumpId =
+    selectedZone?.pumpModuleId ?? selectedZone?.pumpModuleIds?.[0] ?? null;
+  const historyPumpModule = primaryPumpId
+    ? modules.find((m: Module) => m.id === primaryPumpId) ?? null
+    : null;
+
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6">
       {/* Header */}
       <div>
         <h1 className="font-headline text-3xl font-bold tracking-tight uppercase">Analytics Hub</h1>
@@ -95,7 +101,7 @@ export default function HistoryPage() {
             <select
               value={selectedZoneId ?? selectedZone?.id ?? ""}
               onChange={(e) => setZone(e.target.value || null)}
-              className="bg-transparent border-none text-sm font-semibold p-0 focus:ring-0 min-w-[140px]"
+              className="min-w-0 max-w-full bg-transparent border-none p-0 text-sm font-semibold focus:ring-0"
             >
               {zones.map((z) => (
                 <option key={z.id} value={z.id}>
@@ -117,11 +123,7 @@ export default function HistoryPage() {
       ) : selectedZone ? (
         <ZoneHistoryDetail
           zone={selectedZone}
-          pumpModule={
-            selectedZone.pumpModuleId
-              ? modules.find((m: Module) => m.id === selectedZone.pumpModuleId) ?? null
-              : null
-          }
+          pumpModule={historyPumpModule}
           showBackLink={false}
           showZoneTitle={true}
         />

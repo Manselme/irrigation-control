@@ -41,7 +41,7 @@ export default function ProfilePage() {
   if (loading) return <p className="text-muted-foreground">Chargement du profil…</p>;
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 max-w-full space-y-8">
       <div>
         <h1 className="font-headline text-3xl font-bold tracking-tight uppercase">Profile Settings</h1>
         <p className="text-xs text-muted-foreground font-medium mt-1">Identité, avatar et sécurité.</p>

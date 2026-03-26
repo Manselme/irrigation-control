@@ -21,6 +21,47 @@ export interface PumpModuleRef {
   factoryId?: string;
 }
 
+/** RTDB / JSON peuvent renvoyer bool, nombre ou chaîne. */
+export function parseRtdbBool(value: unknown): boolean {
+  if (value === true) return true;
+  if (value === false || value == null) return false;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const s = value.trim().toLowerCase();
+    return s === "true" || s === "1" || s === "yes";
+  }
+  return false;
+}
+
+/** Fusionne plusieurs snapshots `status/...` (aliases device) : booléens en OU logique (aligné mère). */
+function mergeGatewayStatusSnapshots(
+  snaps: Array<Record<string, unknown> | null | undefined>
+): Record<string, unknown> | null {
+  const list = snaps.filter((s): s is Record<string, unknown> => s != null && typeof s === "object");
+  if (list.length === 0) return null;
+  const merged: Record<string, unknown> = Object.assign({}, ...list);
+  let pumpOn = false;
+  let valveOpenLegacy = false;
+  let valveAOpen = false;
+  let valveBOpen = false;
+  for (const s of list) {
+    pumpOn = pumpOn || parseRtdbBool(s.pumpOn);
+    valveOpenLegacy = valveOpenLegacy || parseRtdbBool(s.valveOpen);
+    valveAOpen = valveAOpen || parseRtdbBool(s.valveAOpen);
+    valveBOpen = valveBOpen || parseRtdbBool(s.valveBOpen);
+  }
+  if (!valveAOpen && valveOpenLegacy) valveAOpen = true;
+  if (!valveBOpen && valveOpenLegacy) valveBOpen = true;
+  const valveOpen = valveAOpen || valveBOpen;
+  return {
+    ...merged,
+    pumpOn,
+    valveOpen,
+    valveAOpen,
+    valveBOpen,
+  };
+}
+
 export function useAllPumpStates(
   userId: string | undefined,
   pumps: PumpModuleRef[]
@@ -38,18 +79,14 @@ export function useAllPumpStates(
     pumps.forEach(({ moduleId, gatewayId, deviceId, moduleType, factoryId }) => {
       const resolveState = (raw: Record<string, unknown> | null): PumpState => {
         if (!raw) return { pumpOn: false, valveOpen: false, valveAOpen: false, valveBOpen: false };
-        return {
-          pumpOn: (raw as { pumpOn?: boolean })?.pumpOn ?? false,
-          valveOpen: (raw as { valveOpen?: boolean })?.valveOpen ?? false,
-          valveAOpen:
-            (raw as { valveAOpen?: boolean })?.valveAOpen ??
-            (raw as { valveOpen?: boolean })?.valveOpen ??
-            false,
-          valveBOpen:
-            (raw as { valveBOpen?: boolean })?.valveBOpen ??
-            (raw as { valveOpen?: boolean })?.valveOpen ??
-            false,
-        };
+        const pumpOn = parseRtdbBool(raw.pumpOn);
+        const valveOpenLegacy = parseRtdbBool(raw.valveOpen);
+        let valveAOpen = parseRtdbBool(raw.valveAOpen);
+        let valveBOpen = parseRtdbBool(raw.valveBOpen);
+        if (!valveAOpen && valveOpenLegacy) valveAOpen = true;
+        if (!valveBOpen && valveOpenLegacy) valveBOpen = true;
+        const valveOpen = valveAOpen || valveBOpen;
+        return { pumpOn, valveOpen, valveAOpen, valveBOpen };
       };
 
       if (gatewayId) {
@@ -67,7 +104,7 @@ export function useAllPumpStates(
             const map = snapshotsByModule[moduleId] ?? {};
             map[path] = snap.exists() ? (snap.val() as Record<string, unknown>) : null;
             snapshotsByModule[moduleId] = map;
-            const selected = paths.map((p) => map[p]).find((v) => v != null) ?? null;
+            const selected = mergeGatewayStatusSnapshots(paths.map((p) => map[p]));
             setStates((prev) => ({ ...prev, [moduleId]: resolveState(selected) }));
           });
           unsubs.push(unsub);

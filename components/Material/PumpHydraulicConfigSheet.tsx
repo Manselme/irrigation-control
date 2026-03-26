@@ -33,6 +33,7 @@ export function PumpHydraulicConfigSheet({
   const [referencePressureBar, setReferencePressureBar] = useState("");
   const [valveAName, setValveAName] = useState("");
   const [valveBName, setValveBName] = useState("");
+  const [flowRateLitersPerMinute, setFlowRateLitersPerMinute] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -46,6 +47,11 @@ export function PumpHydraulicConfigSheet({
         ? String(pump.hydraulicSettings.referencePressureBar)
         : ""
     );
+    setFlowRateLitersPerMinute(
+      pump?.hydraulicSettings?.flowRateLitersPerMinute != null
+        ? String(pump.hydraulicSettings.flowRateLitersPerMinute)
+        : ""
+    );
     setValveAName(pump?.valves?.A?.name ?? "Vanne A");
     setValveBName(pump?.valves?.B?.name ?? "Vanne B");
   }, [pump?.id]);
@@ -56,10 +62,26 @@ export function PumpHydraulicConfigSheet({
         <SheetHeader>
           <SheetTitle>Configuration hydraulique</SheetTitle>
           <SheetDescription>
-            Parametrez le calculateur de debit virtuel pour {pump?.name || pump?.id || "la pompe"}.
+            Parametrez le débit et le calculateur hydraulique pour {pump?.name || pump?.id || "la pompe"}.
           </SheetDescription>
         </SheetHeader>
         <div className="mt-4 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="flowRateLitersPerMinute">Débit pompe (litres / minute)</Label>
+            <Input
+              id="flowRateLitersPerMinute"
+              type="number"
+              min={0.1}
+              step={0.5}
+              value={flowRateLitersPerMinute}
+              onChange={(e) => setFlowRateLitersPerMinute(e.target.value)}
+              placeholder="ex. 120"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Utilisé pour estimer le volume d&apos;eau (litres) pendant une marche pompe et pour les jours sans
+              volume renvoyé par le matériel (seulement les minutes).
+            </p>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="pipeDiameterMm">Diametre interne (mm)</Label>
             <Input
@@ -107,16 +129,23 @@ export function PumpHydraulicConfigSheet({
               if (!pump) return;
               setSaving(true);
               try {
+                const nextHydraulic: Record<string, unknown> = {
+                  ...pump.hydraulicSettings,
+                  pipeDiameterMm:
+                    pipeDiameterMm.trim() !== "" ? Number(pipeDiameterMm) : undefined,
+                  referencePressureBar:
+                    referencePressureBar.trim() !== "" ? Number(referencePressureBar) : undefined,
+                  flowRateLitersPerMinute:
+                    flowRateLitersPerMinute.trim() !== ""
+                      ? Number(flowRateLitersPerMinute)
+                      : undefined,
+                  updatedAt: Date.now(),
+                };
+                const hydraulicSettings = Object.fromEntries(
+                  Object.entries(nextHydraulic).filter(([, v]) => v !== undefined)
+                ) as Module["hydraulicSettings"];
                 await onSave(pump.id, {
-                  hydraulicSettings: {
-                    pipeDiameterMm:
-                      pipeDiameterMm.trim() !== "" ? Number(pipeDiameterMm) : undefined,
-                    referencePressureBar:
-                      referencePressureBar.trim() !== ""
-                        ? Number(referencePressureBar)
-                        : undefined,
-                    updatedAt: Date.now(),
-                  },
+                  hydraulicSettings,
                   valves: {
                     A: { ...(pump.valves?.A ?? {}), name: valveAName || "Vanne A" },
                     B: { ...(pump.valves?.B ?? {}), name: valveBName || "Vanne B" },

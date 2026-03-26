@@ -127,6 +127,10 @@ function parseModule(
             typeof hydraulicSettingsRaw.referencePressureBar === "number"
               ? hydraulicSettingsRaw.referencePressureBar
               : undefined,
+          flowRateLitersPerMinute:
+            typeof hydraulicSettingsRaw.flowRateLitersPerMinute === "number"
+              ? hydraulicSettingsRaw.flowRateLitersPerMinute
+              : undefined,
           updatedAt:
             typeof hydraulicSettingsRaw.updatedAt === "number"
               ? hydraulicSettingsRaw.updatedAt

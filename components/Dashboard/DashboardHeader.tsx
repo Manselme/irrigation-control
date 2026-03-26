@@ -24,6 +24,8 @@ export function DashboardHeader({ onStopAll }: DashboardHeaderProps) {
     moduleId: m.id,
     gatewayId: m.gatewayId,
     deviceId: m.deviceId,
+    moduleType: m.type,
+    factoryId: m.factoryId,
   }));
   const pumpStates = useAllPumpStates(user?.uid, pumpRefs);
   const { sendCommand } = useSendCommand(user?.uid);

@@ -2,6 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { useSendCommand } from "@/lib/hooks/useCommands";
+import type { PumpState } from "@/lib/hooks/useAllPumpStates";
+import { isIrrigationFlowing } from "@/lib/hooks/usePumpSessionVolumes";
 import type { Module } from "@/types";
 import { formatModulePumpPressure } from "@/lib/pumpPressure";
 import { Square } from "lucide-react";
@@ -9,7 +11,7 @@ import { Square } from "lucide-react";
 interface LiveActivityWidgetProps {
   userId: string | undefined;
   pumpModules: Module[];
-  pumpStates: Record<string, { pumpOn: boolean; valveOpen: boolean }>;
+  pumpStates: Record<string, PumpState>;
 }
 
 export function LiveActivityWidget({
@@ -19,9 +21,7 @@ export function LiveActivityWidget({
 }: LiveActivityWidgetProps) {
   const { sendCommand } = useSendCommand(userId);
 
-  const active = pumpModules.filter(
-    (m) => pumpStates[m.id]?.pumpOn || pumpStates[m.id]?.valveOpen
-  );
+  const active = pumpModules.filter((m) => isIrrigationFlowing(pumpStates[m.id]));
 
   const handleStop = (moduleId: string) => {
     const state = pumpStates[moduleId];
@@ -31,7 +31,9 @@ export function LiveActivityWidget({
         ? { gatewayId: mod.gatewayId, deviceId: mod.deviceId }
         : undefined;
     if (state?.pumpOn) sendCommand(moduleId, "PUMP_OFF", opts);
-    if (state?.valveOpen) sendCommand(moduleId, "VALVE_CLOSE", opts);
+    if (state?.valveOpen || state?.valveAOpen || state?.valveBOpen) {
+      sendCommand(moduleId, "VALVE_CLOSE", opts);
+    }
   };
 
   return (
@@ -51,7 +53,7 @@ export function LiveActivityWidget({
       ) : (
         <div className="space-y-4">
           {pumpModules.map((m) => {
-            const isActive = pumpStates[m.id]?.pumpOn || pumpStates[m.id]?.valveOpen;
+            const isActive = isIrrigationFlowing(pumpStates[m.id]);
             return (
               <div
                 key={m.id}

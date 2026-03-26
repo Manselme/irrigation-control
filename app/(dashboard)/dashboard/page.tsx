@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { get, ref } from "firebase/database";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useModules } from "@/lib/hooks/useModules";
 import { useAlertConfig, useAlertNotifications } from "@/lib/hooks/useAlerts";
 import { useZones } from "@/lib/hooks/useZones";
 import { useAllPumpStates } from "@/lib/hooks/useAllPumpStates";
+import { usePumpLiveLitersRtdb } from "@/lib/hooks/usePumpLiveLitersRtdb";
+import { isIrrigationFlowing } from "@/lib/hooks/usePumpSessionVolumes";
 import { useLatestSensorMap } from "@/lib/hooks/useLatestSensorMap";
 import { useLinkedGateways } from "@/lib/hooks/useLinkedGateways";
-import { useWeeklyFlowEstimate } from "@/lib/hooks/useFlowEstimates";
+import { fetchWeeklyVolumeLitersForPump } from "@/lib/pumpActivityTotals";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { useFarms } from "@/lib/hooks/useFarms";
-import { getFirebaseDb } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TopCriticalZonesWidget, type CriticalZoneItem } from "@/components/Dashboard/TopCriticalZonesWidget";
@@ -28,6 +28,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/time";
+import { formatVolumeLiters } from "@/lib/waterVolume";
 import type { Module } from "@/types";
 
 const DEFAULT_LAT = 46.6;
@@ -64,12 +65,41 @@ export default function DashboardPage() {
     moduleId: m.id,
     gatewayId: m.gatewayId,
     deviceId: m.deviceId,
+    moduleType: m.type,
+    factoryId: m.factoryId,
   }));
   const pumpStates = useAllPumpStates(user?.uid, pumpRefs);
+  const anySessionFlowing = useMemo(
+    () => pumpModules.some((m: Module) => isIrrigationFlowing(pumpStates[m.id])),
+    [pumpModules, pumpStates]
+  );
   const fieldModules = modules.filter((m: Module) => m.type === "field");
   const latestSensors = useLatestSensorMap(user?.uid, fieldModules);
-  const [weeklyVolumeM3, setWeeklyVolumeM3] = useState(0);
-  const weeklyFlowEstimateM3 = useWeeklyFlowEstimate(user?.uid);
+  const [weeklyVolumeLiters, setWeeklyVolumeLiters] = useState(0);
+
+  const pumpModulesKey = pumpModules
+    .map((m: Module) => `${m.id}:${m.gatewayId ?? ""}:${m.deviceId ?? ""}`)
+    .join(",");
+  const pumpModulesRef = useRef(pumpModules);
+  pumpModulesRef.current = pumpModules;
+
+  const loadWeeklyVolume = useCallback(async () => {
+    const pumps = pumpModulesRef.current;
+    if (!user?.uid || pumps.length === 0) {
+      setWeeklyVolumeLiters(0);
+      return;
+    }
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    let totalLiters = 0;
+    for (const pump of pumps) {
+      totalLiters += await fetchWeeklyVolumeLitersForPump(user.uid, pump, cutoff);
+    }
+    setWeeklyVolumeLiters(totalLiters);
+  }, [user?.uid, pumpModulesKey]);
+
+  const { overlayLiters } = usePumpLiveLitersRtdb(user?.uid, pumpModules, pumpStates, () => {
+    void loadWeeklyVolume();
+  });
 
   const firstZone = zones[0];
   const center = firstZone ? getZoneCenter(firstZone) : null;
@@ -106,45 +136,16 @@ export default function DashboardPage() {
     modules.filter((m: Module) => (m.type === "field" || m.type === "pump") && !m.online).length;
 
   useEffect(() => {
-    let mounted = true;
-    async function loadWeeklyVolume() {
-      if (!user?.uid || pumpModules.length === 0) {
-        if (mounted) setWeeklyVolumeM3(0);
-        return;
-      }
-      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      let totalVolume = 0;
-      let fallbackMinutes = 0;
-      for (const pump of pumpModules) {
-        const path =
-          pump.gatewayId && pump.deviceId
-            ? `gateways/${pump.gatewayId}/pumpActivity/${pump.deviceId}`
-            : `users/${user.uid}/pumpActivity/${pump.id}`;
-        const snap = await get(ref(getFirebaseDb(), path));
-        if (!snap.exists()) continue;
-        const data = snap.val() as Record<string, number | { minutes?: number; volume_m3?: number }>;
-        Object.entries(data).forEach(([date, value]) => {
-          if (date < cutoff) return;
-          if (typeof value === "number") {
-            fallbackMinutes += value;
-            return;
-          }
-          const minutes = Number(value?.minutes ?? 0);
-          const volume = Number(value?.volume_m3 ?? 0);
-          fallbackMinutes += Number.isFinite(minutes) ? minutes : 0;
-          totalVolume += Number.isFinite(volume) ? volume : 0;
-        });
-      }
-      if (totalVolume <= 0 && fallbackMinutes > 0) totalVolume = fallbackMinutes * 0.03;
-      if (mounted) setWeeklyVolumeM3(totalVolume);
-    }
-    loadWeeklyVolume();
-    return () => {
-      mounted = false;
-    };
-  }, [user?.uid, pumpModules.map((m: Module) => `${m.id}:${m.gatewayId ?? ""}:${m.deviceId ?? ""}`).join(",")]);
+    void loadWeeklyVolume();
+    const tick = window.setInterval(() => void loadWeeklyVolume(), 60_000);
+    return () => window.clearInterval(tick);
+  }, [loadWeeklyVolume]);
 
-  const weeklyVolumeM3Effective = weeklyFlowEstimateM3 ?? weeklyVolumeM3;
+  /**
+   * 7 j : pumpActivity + gateways + `pumpLiveLitersAccum` (litres L persistés),
+   * + léger complément entre deux écritures RTDB pour un affichage fluide.
+   */
+  const globalVolumeLitersLive = weeklyVolumeLiters + overlayLiters;
 
   const hasGateway = gateways.length > 0;
   const hasModules = modules.some((m: Module) => m.type === "pump" || m.type === "field");
@@ -168,7 +169,7 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6">
       {/* Welcome Header + KPI Badges (Stitch-style inline) */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -198,20 +199,26 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 bg-surface-lowest px-4 py-2 rounded ring-1 ring-border/15">
-            <Droplets className="h-4 w-4 text-primary" />
+          <div
+            className={`flex items-center gap-3 bg-surface-lowest px-4 py-2 rounded ring-1 ring-border/15 ${
+              anySessionFlowing ? "ring-primary/40" : ""
+            }`}
+          >
+            <Droplets className={`h-4 w-4 ${anySessionFlowing ? "text-primary" : "text-primary/80"}`} />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Volume</p>
-              <p className="text-sm font-headline font-bold">{weeklyVolumeM3Effective.toFixed(0)} m³</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Volume (7 j)</p>
+              <p className="text-sm font-headline font-bold leading-tight">
+                {formatVolumeLiters(globalVolumeLitersLive)}
+              </p>
             </div>
           </div>
         </div>
       </header>
 
       {/* Bento Grid: 4-col left + 8-col right */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+      <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-12">
         {/* Left Sidebar: Onboarding + Priority Actions */}
-        <div className="md:col-span-4 space-y-4">
+        <div className="min-w-0 space-y-4 md:col-span-4">
           {!onboardingDone && (
             <section className="rounded-lg bg-surface-lowest p-5 ring-1 ring-border/15">
               <div className="mb-3 flex items-center justify-between">
@@ -297,7 +304,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Main Grid Area (8-col): 2x2 + full-width alerts */}
-        <div className="md:col-span-8 grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid min-w-0 grid-cols-1 gap-5 md:col-span-8 lg:grid-cols-2">
           {modulesLoading ? (
             <>
               <Skeleton className="h-[220px] w-full rounded-lg" />
