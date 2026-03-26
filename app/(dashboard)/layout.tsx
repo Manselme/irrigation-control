@@ -54,11 +54,11 @@ export default function DashboardLayout({
       <Sidebar />
       <TopAppBar />
       {isFullCanvas ? (
-        <main className="pt-16 lg:pl-64 h-screen w-full relative overflow-hidden bg-surface-low">
+        <main className="relative h-screen w-full min-w-0 overflow-hidden bg-surface-low pt-16 lg:pl-64">
           {children}
         </main>
       ) : (
-        <main className="lg:ml-64 pt-20 px-6 pb-20 lg:pb-12 min-h-screen max-w-[1600px] mx-auto">
+        <main className="min-h-screen w-full min-w-0 pt-20 pb-20 pl-4 pr-4 sm:px-6 lg:ml-64 lg:pb-12">
           {children}
         </main>
       )}

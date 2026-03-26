@@ -4,7 +4,11 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ref, get, set, onValue } from "firebase/database";
 import { getFirebaseDb } from "@/lib/firebase";
 import type { Module, ModuleType } from "@/types";
-import { buildGatewayDeviceIds, buildGatewayStatusPaths } from "@/lib/gatewayDevicePaths";
+import {
+  buildGatewayDeviceIds,
+  buildGatewaySensorPaths,
+  buildGatewayStatusPaths,
+} from "@/lib/gatewayDevicePaths";
 import { barToPsi, psiToBar } from "@/lib/pumpPressure";
 
 const DEFAULT_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
@@ -68,6 +72,18 @@ function readPumpPressurePsiFromStatusCache(
     if (typeof psi === "number" && Number.isFinite(psi)) return psi;
     const bar = st.pressure;
     if (typeof bar === "number" && Number.isFinite(bar)) return barToPsi(bar);
+  }
+  return undefined;
+}
+
+function readLatLngFromSensorSnapshot(
+  data: Record<string, unknown> | null | undefined
+): { lat: number; lng: number } | undefined {
+  if (!data) return undefined;
+  const lat = data.lat;
+  const lng = data.lng;
+  if (typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)) {
+    return { lat, lng };
   }
   return undefined;
 }
@@ -165,8 +181,12 @@ export function useModules(
   const [pumpPressurePsiByModuleId, setPumpPressurePsiByModuleId] = useState<
     Record<string, number | undefined>
   >({});
+  const [fieldGpsByModuleId, setFieldGpsByModuleId] = useState<
+    Record<string, { lat: number; lng: number } | undefined>
+  >({});
   const gatewayHeartbeatByModuleIdRef = useRef<Record<string, number>>({});
   const statusCacheByModuleRef = useRef<Record<string, Record<string, Record<string, unknown> | null>>>({});
+  const sensorCacheByModuleRef = useRef<Record<string, Record<string, Record<string, unknown> | null>>>({});
   const [nowTick, setNowTick] = useState(Date.now());
   const thresholdMs =
     (options?.offlineThresholdMinutes ?? 5) * 60 * 1000;
@@ -218,6 +238,7 @@ export function useModules(
   useEffect(() => {
     if (!userId) {
       setGatewayLastSeenByModuleId({});
+      setFieldGpsByModuleId({});
       return;
     }
     const tracked = modules.filter(
@@ -238,6 +259,16 @@ export function useModules(
       });
       return next;
     });
+    const fieldTrackedIds = new Set(
+      tracked.filter((m) => m.type === "field").map((m) => m.id)
+    );
+    setFieldGpsByModuleId((prev) => {
+      const next: Record<string, { lat: number; lng: number } | undefined> = {};
+      fieldTrackedIds.forEach((id) => {
+        if (id in prev) next[id] = prev[id];
+      });
+      return next;
+    });
     {
       const nextHeartbeats: Record<string, number> = {};
       for (const [key, hb] of Object.entries(gatewayHeartbeatByModuleIdRef.current)) {
@@ -253,6 +284,14 @@ export function useModules(
         if (existing) nextStatusCache[moduleId] = existing;
       });
       statusCacheByModuleRef.current = nextStatusCache;
+    }
+    {
+      const nextSensorCache: Record<string, Record<string, Record<string, unknown> | null>> = {};
+      fieldTrackedIds.forEach((moduleId) => {
+        const existing = sensorCacheByModuleRef.current[moduleId];
+        if (existing) nextSensorCache[moduleId] = existing;
+      });
+      sensorCacheByModuleRef.current = nextSensorCache;
     }
 
     if (tracked.length === 0) return;
@@ -316,9 +355,8 @@ export function useModules(
             statusCacheByModuleRef.current[m.id] = statusCache;
             recomputeModuleLastSeen();
             if (m.type === "pump") {
-              const psi = readPumpPressurePsiFromStatusCache(
-                statusCacheByModuleRef.current[m.id] ?? {}
-              );
+              const cache = statusCacheByModuleRef.current[m.id] ?? {};
+              const psi = readPumpPressurePsiFromStatusCache(cache);
               setPumpPressurePsiByModuleId((prev) => {
                 if (prev[m.id] === psi) return prev;
                 return { ...prev, [m.id]: psi };
@@ -335,6 +373,43 @@ export function useModules(
         );
         unsubs.push(unsub);
       });
+
+      if (m.type === "field") {
+        const sensorPaths = buildGatewaySensorPaths(m.gatewayId!, ids);
+        sensorCacheByModuleRef.current[m.id] = {};
+        sensorPaths.forEach((path) => {
+          const sensorRef = ref(getFirebaseDb(), path);
+          const unsub = onValue(
+            sensorRef,
+            (snap) => {
+              const sensorCache = sensorCacheByModuleRef.current[m.id] ?? {};
+              sensorCache[path] = snap.exists()
+                ? (snap.val() as Record<string, unknown>)
+                : null;
+              sensorCacheByModuleRef.current[m.id] = sensorCache;
+              let ll: { lat: number; lng: number } | undefined;
+              for (const v of Object.values(sensorCache)) {
+                ll = readLatLngFromSensorSnapshot(v);
+                if (ll) break;
+              }
+              setFieldGpsByModuleId((prev) => {
+                if (!ll) return prev;
+                const cur = prev[m.id];
+                if (cur && cur.lat === ll.lat && cur.lng === ll.lng) return prev;
+                return { ...prev, [m.id]: ll };
+              });
+            },
+            (err: unknown) => {
+              const msg = err instanceof Error ? err.message : String(err);
+              if (msg.includes("Permission denied")) {
+                console.warn("[Firebase] Permission denied sur gateways/.../sensors. Vérifiez les règles.");
+              }
+              console.error("[Firebase]", err);
+            }
+          );
+          unsubs.push(unsub);
+        });
+      }
     });
     return () => unsubs.forEach((u) => u());
   }, [userId, gatewayBoundModulesKey, modules]);
@@ -383,6 +458,20 @@ export function useModules(
         };
       }),
     [modulesWithOnline, pumpPressurePsiByModuleId]
+  );
+
+  /** Position carte : GPS champ (capteurs passerelle lat|lng) prioritaire sur position manuelle. */
+  const modulesWithFieldGpsPosition = useMemo<Module[]>(
+    () =>
+      modulesWithPumpPressure.map((m) => {
+        if (m.type !== "field") return m;
+        const gw = fieldGpsByModuleId[m.id];
+        if (gw && Number.isFinite(gw.lat) && Number.isFinite(gw.lng)) {
+          return { ...m, position: { lat: gw.lat, lng: gw.lng } };
+        }
+        return m;
+      }),
+    [modulesWithPumpPressure, fieldGpsByModuleId]
   );
 
   const addModule = useCallback(
@@ -442,7 +531,7 @@ export function useModules(
     [userId]
   );
 
-  return { modules: modulesWithPumpPressure, loading, addModule, removeModule, updateModule };
+  return { modules: modulesWithFieldGpsPosition, loading, addModule, removeModule, updateModule };
 }
 
 export function useModuleStatus(

@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { LinkedGateway, Module } from "@/types";
+import { FieldSensorConfigSheet } from "@/components/Material/FieldSensorConfigSheet";
 import { PumpHydraulicConfigSheet } from "@/components/Material/PumpHydraulicConfigSheet";
 import { formatModulePumpPressure } from "@/lib/pumpPressure";
 
@@ -38,6 +39,7 @@ export default function MaterialPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetType, setSheetType] = useState<"gateway" | "module">("module");
   const [configPumpId, setConfigPumpId] = useState<string | null>(null);
+  const [configFieldId, setConfigFieldId] = useState<string | null>(null);
   const [farmName, setFarmName] = useState("Mon espace");
   const [addingFarm, setAddingFarm] = useState(false);
 
@@ -235,6 +237,16 @@ export default function MaterialPage() {
                               >
                                 <Settings2 className="h-4 w-4 text-primary" />
                               </Button>
+                            ) : row.kind === "field" ? (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                                onClick={() => setConfigFieldId(row.id)}
+                                aria-label={`Position GPS ${row.id}`}
+                              >
+                                <Settings2 className="h-4 w-4 text-primary" />
+                              </Button>
                             ) : null}
                             <Button
                               size="icon"
@@ -364,6 +376,13 @@ export default function MaterialPage() {
         onSave={async (moduleId, updates) => {
           await updateModule(moduleId, updates);
         }}
+      />
+      <FieldSensorConfigSheet
+        open={!!configFieldId}
+        onOpenChange={(open) => !open && setConfigFieldId(null)}
+        fieldModule={
+          configFieldId ? (modules.find((m: Module) => m.id === configFieldId) ?? null) : null
+        }
       />
     </div>
   );

@@ -79,11 +79,14 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 bg-surface-low py-6 px-4 transition-transform hidden lg:flex lg:flex-col lg:justify-between",
-          mobileOpen ? "translate-x-0 flex flex-col justify-between" : "-translate-x-full lg:translate-x-0"
+          "fixed inset-y-0 left-0 z-40 w-64 bg-surface-low py-6 px-4 transition-transform",
+          "hidden lg:flex lg:h-screen lg:min-h-0 lg:flex-col",
+          mobileOpen
+            ? "translate-x-0 flex h-[100dvh] min-h-0 flex-col"
+            : "-translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="mb-8 px-2">
+        <div className="shrink-0 px-2">
           <p className="text-2xl font-bold uppercase tracking-widest font-headline text-foreground">
             CeresAnalytics
           </p>
@@ -93,9 +96,9 @@ export function Sidebar() {
           <p className="mt-2 truncate text-xs text-muted-foreground">{user?.email}</p>
         </div>
 
-        <nav className="space-y-1">{renderNav(mainItems)}</nav>
+        <nav className="mt-6 shrink-0 space-y-1">{renderNav(mainItems)}</nav>
 
-        <div className="mt-6 pt-6 border-t border-border/10">
+        <div className="mt-auto shrink-0 border-t border-border/10 pt-6">
           <nav className="space-y-1">{renderNav(bottomItems)}</nav>
           <Button
             variant="outline"

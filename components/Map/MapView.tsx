@@ -303,6 +303,12 @@ export function MapView({
                   <span className="font-medium">{m.id}</span>
                   <br />
                   Module Champ {m.online ? "(en ligne)" : "(hors ligne)"}
+                  {m.position?.lat != null && m.position?.lng != null ? (
+                    <>
+                      <br />
+                      GPS : {m.position.lat.toFixed(6)}, {m.position.lng.toFixed(6)}
+                    </>
+                  ) : null}
                 </Popup>
               </Marker>
             ))}

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useFarms } from "@/lib/hooks/useFarms";
 import { useModules } from "@/lib/hooks/useModules";
 import { useAlertConfig } from "@/lib/hooks/useAlerts";
 import { useZones } from "@/lib/hooks/useZones";
+import { useAllPumpStates } from "@/lib/hooks/useAllPumpStates";
 import { MapView } from "@/components/Map/MapView";
 import { ZoneEditor } from "@/components/Map/ZoneEditor";
 import type { Farm, Module, Zone } from "@/types";
@@ -39,6 +40,19 @@ export default function MapPage() {
   }, [zones, drawingZoneId, selectedZoneId]);
 
   const fieldModules = modules.filter((m: Module) => m.type === "field");
+  const pumpModules = modules.filter((m: Module) => m.type === "pump");
+  const pumpRefs = useMemo(
+    () =>
+      pumpModules.map((m: Module) => ({
+        moduleId: m.id,
+        gatewayId: m.gatewayId,
+        deviceId: m.deviceId,
+        moduleType: m.type,
+        factoryId: m.factoryId,
+      })),
+    [pumpModules]
+  );
+  const pumpStates = useAllPumpStates(user?.uid, pumpRefs);
 
   const handleStartDrawing = useCallback((zoneId: string) => {
     const zone = zones.find((z: Zone) => z.id === zoneId);
@@ -122,6 +136,8 @@ export default function MapPage() {
             <MapView
               zones={zones}
               fieldModules={fieldModules}
+              pumpModules={pumpModules}
+              pumpStatesByModuleId={pumpStates}
               className="h-full w-full"
               onMapClick={drawingZoneId ? handleMapClick : undefined}
               draftLatLngs={draftLatLngs}

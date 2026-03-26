@@ -24,7 +24,7 @@ export function TopAppBar({ className }: { className?: string }) {
         className
       )}
     >
-      <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 lg:px-6">
+      <div className="flex h-16 w-full min-w-0 items-center justify-between px-4 lg:px-6">
         <div className="flex items-center gap-4 min-w-0">
           <span className="font-headline text-lg font-black uppercase tracking-tight text-foreground">
             CeresAnalytics
