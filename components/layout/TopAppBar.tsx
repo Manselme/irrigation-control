@@ -27,7 +27,7 @@ export function TopAppBar({ className }: { className?: string }) {
         className
       )}
     >
-      <div className="flex h-16 w-full min-w-0 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 xl:px-10">
+      <div className="flex h-16 w-full min-w-0 items-center justify-between gap-3 pl-14 pr-4 sm:pl-14 sm:pr-6 lg:px-8 xl:px-10">
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
           <span className="shrink-0 font-headline text-base font-black uppercase tracking-tight text-foreground sm:text-lg">
             CeresAnalytics

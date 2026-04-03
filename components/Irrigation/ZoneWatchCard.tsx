@@ -118,9 +118,17 @@ export function ZoneWatchCard({
       <div className="mt-4 rounded-md border border-slate-200 p-3">
         <p className="text-xs font-medium text-slate-600">Pompe</p>
         {pumpModule ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Pression : {formatModulePumpPressure(pumpModule)}
-          </p>
+          <div className="mt-1 space-y-1 text-xs text-muted-foreground">
+            <p>Pression : {formatModulePumpPressure(pumpModule)}</p>
+            {pumpModule.moisturePct != null && Number.isFinite(pumpModule.moisturePct) ? (
+              <p>
+                Humidite sol : {Math.round(pumpModule.moisturePct)}%
+                {pumpModule.moistureMv != null && Number.isFinite(pumpModule.moistureMv)
+                  ? ` (${Math.round(pumpModule.moistureMv)} mV)`
+                  : ""}
+              </p>
+            ) : null}
+          </div>
         ) : null}
         <div className="mt-2 flex items-center justify-between gap-2">
           <Button

@@ -20,6 +20,10 @@ export interface Module {
   pressure?: number;
   /** Pression brute capteur pompe (PSI), depuis gateways/.../status/pressurePsi. */
   pressurePsi?: number;
+  /** Humidité sol (%) mesurée côté pompe, depuis gateways/.../status/moisturePct. */
+  moisturePct?: number;
+  /** Valeur brute ADC (mV) du capteur humidité côté pompe, depuis gateways/.../status/moistureMv. */
+  moistureMv?: number;
   name?: string;
   /** ID d'usine (4 octets MAC en hex, 8 caractères) pour Champ/Pompe. Déprécié au profit de deviceId. */
   factoryId?: string;

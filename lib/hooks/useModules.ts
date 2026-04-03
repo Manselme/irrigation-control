@@ -76,6 +76,22 @@ function readPumpPressurePsiFromStatusCache(
   return undefined;
 }
 
+function readPumpMoistureFromStatusCache(
+  cache: Record<string, Record<string, unknown> | null>
+): { moisturePct?: number; moistureMv?: number } {
+  for (const st of Object.values(cache)) {
+    if (!st) continue;
+    const pct = st.moisturePct;
+    const mv = st.moistureMv;
+    const moisturePct =
+      typeof pct === "number" && Number.isFinite(pct) ? pct : undefined;
+    const moistureMv =
+      typeof mv === "number" && Number.isFinite(mv) ? mv : undefined;
+    if (moisturePct != null || moistureMv != null) return { moisturePct, moistureMv };
+  }
+  return {};
+}
+
 function readLatLngFromSensorSnapshot(
   data: Record<string, unknown> | null | undefined
 ): { lat: number; lng: number } | undefined {
@@ -164,6 +180,8 @@ export type UseModulesUpdatePayload = Partial<
     | "online"
     | "pressure"
     | "pressurePsi"
+    | "moisturePct"
+    | "moistureMv"
     | "position"
     | "name"
     | "lastSeen"
@@ -184,6 +202,9 @@ export function useModules(
   const [gatewayLastSeenByModuleId, setGatewayLastSeenByModuleId] = useState<Record<string, number>>({});
   const [pumpPressurePsiByModuleId, setPumpPressurePsiByModuleId] = useState<
     Record<string, number | undefined>
+  >({});
+  const [pumpMoistureByModuleId, setPumpMoistureByModuleId] = useState<
+    Record<string, { moisturePct?: number; moistureMv?: number } | undefined>
   >({});
   const [fieldGpsByModuleId, setFieldGpsByModuleId] = useState<
     Record<string, { lat: number; lng: number } | undefined>
@@ -258,6 +279,13 @@ export function useModules(
     });
     setPumpPressurePsiByModuleId((prev) => {
       const next: Record<string, number | undefined> = {};
+      trackedIds.forEach((id) => {
+        if (id in prev) next[id] = prev[id];
+      });
+      return next;
+    });
+    setPumpMoistureByModuleId((prev) => {
+      const next: Record<string, { moisturePct?: number; moistureMv?: number } | undefined> = {};
       trackedIds.forEach((id) => {
         if (id in prev) next[id] = prev[id];
       });
@@ -365,6 +393,13 @@ export function useModules(
                 if (prev[m.id] === psi) return prev;
                 return { ...prev, [m.id]: psi };
               });
+              const moist = readPumpMoistureFromStatusCache(cache);
+              setPumpMoistureByModuleId((prev) => {
+                const cur = prev[m.id];
+                if (cur?.moisturePct === moist.moisturePct && cur?.moistureMv === moist.moistureMv)
+                  return prev;
+                return { ...prev, [m.id]: moist };
+              });
             }
           },
           (err: unknown) => {
@@ -454,14 +489,17 @@ export function useModules(
       modulesWithOnline.map((m) => {
         if (m.type !== "pump") return m;
         const psi = pumpPressurePsiByModuleId[m.id];
+        const moist = pumpMoistureByModuleId[m.id];
         if (psi == null || !Number.isFinite(psi)) return m;
         return {
           ...m,
           pressurePsi: psi,
           pressure: psiToBar(psi),
+          moisturePct: moist?.moisturePct,
+          moistureMv: moist?.moistureMv,
         };
       }),
-    [modulesWithOnline, pumpPressurePsiByModuleId]
+    [modulesWithOnline, pumpPressurePsiByModuleId, pumpMoistureByModuleId]
   );
 
   /** Position carte : GPS champ (capteurs passerelle lat|lng) prioritaire sur position manuelle. */

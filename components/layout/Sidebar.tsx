@@ -78,13 +78,18 @@ export function Sidebar() {
 
   return (
     <>
-      <div className="sticky top-0 z-30 flex h-14 min-w-0 items-center bg-surface px-3 lg:hidden">
-        <Button variant="ghost" size="icon" onClick={() => setMobileOpen((v) => !v)}>
+      <div className="pointer-events-none fixed left-0 top-0 z-50 flex h-16 w-14 items-center justify-center lg:hidden">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="pointer-events-auto"
+          onClick={() => setMobileOpen((v) => !v)}
+          aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
+          aria-expanded={mobileOpen}
+        >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
-        <p className="ml-2 truncate text-sm font-semibold font-headline uppercase tracking-tight">
-          CeresAnalytics
-        </p>
       </div>
 
       <aside
